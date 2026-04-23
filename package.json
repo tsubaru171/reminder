@@ -1,0 +1,67 @@
+{
+  "name": "remindboard",
+  "version": "2.0.0",
+  "description": "Team reminder app with Supabase backend",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "com.team.remindboard",
+    "productName": "RemindBoard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "assets/**"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "YOUR_GITHUB_USERNAME",
+      "repo": "YOUR_REPO_NAME"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signingHashAlgorithms": null,
+      "sign": null
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0",
+    "rcedit": "^5.0.2"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  }
+}

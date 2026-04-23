@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';">
+<title>Reminder</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: #0D0D0D;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 48px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-app-region: no-drag;
+  }
+
+  /* Pulsing bg glow */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -20%;
+    background: radial-gradient(ellipse at center, #2a0a1a 0%, #0D0D0D 65%);
+    animation: glow 2.5s ease-in-out infinite;
+    z-index: 0;
+  }
+  @keyframes glow { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popIn {
+    from { transform: scale(0.75); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+
+  .bell-ring {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: #F5B8DB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+    animation: ring 0.55s ease-in-out infinite, pulse 1.5s ease infinite;
+  }
+  @keyframes ring  { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0   rgba(245,184,219,.5); }
+                     50%      { box-shadow: 0 0 0 28px rgba(245,184,219,0);  } }
+
+  .bell-ring svg { width: 52px; height: 52px; }
+
+  .for-label {
+    font-size: 13px;
+    color: rgba(255,255,255,.4);
+    text-transform: uppercase;
+    letter-spacing: .2em;
+    margin-bottom: 6px;
+  }
+
+  .assignee-name {
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    font-weight: 700;
+    color: rgba(255,255,255,.9);
+    margin-bottom: 6px;
+  }
+
+  .reminder-msg {
+    font-size: clamp(2rem, 5.5vw, 4rem);
+    font-weight: 700;
+    color: #F5D867;
+    line-height: 1.15;
+    margin: 18px 0 44px;
+    max-width: min(860px, 90vw);
+    letter-spacing: -0.5px;
+  }
+
+  .btn-got-it {
+    background: #fff;
+    color: #000;
+    border: none;
+    padding: 18px 56px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 14px;
+    cursor: pointer;
+    letter-spacing: .04em;
+    transition: transform .15s, background .15s;
+  }
+  .btn-got-it:hover { transform: scale(1.04); }
+  .btn-got-it:active { transform: scale(0.98); }
+
+  .btn-open {
+    margin-top: 14px;
+    background: none;
+    border: 1.5px solid rgba(255,255,255,.2);
+    color: rgba(255,255,255,.45);
+    padding: 10px 28px;
+    font-family: 'Nunito', sans-serif;
+    font-size: .8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-open:hover { border-color: rgba(255,255,255,.5); color: #fff; }
+
+  .keyboard-hint {
+    margin-top: 20px;
+    font-size: 11px;
+    color: rgba(255,255,255,.2);
+  }
+  .realert-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    color: rgba(255,255,255,.18);
+    font-style: italic;
+  }
+  .snooze-row { display: flex; gap: 8px; margin-top: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-snooze { background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.2); color: rgba(255,255,255,.65); padding: 8px 20px; font-family: 'Nunito', sans-serif; font-size: .8rem; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all .15s; }
+  .btn-snooze:hover { background: rgba(255,255,255,.2); color: #fff; }
+</style>
+</head>
+<body>
+<div class="content">
+  <div class="bell-ring">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#D4537E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 01-3.46 0"/>
+    </svg>
+  </div>
+
+  <div class="for-label">Reminder for</div>
+  <div class="assignee-name" id="assignee">You</div>
+  <div class="reminder-msg" id="reminder-msg">Time to act!</div>
+
+  <button class="btn-got-it" onclick="dismiss()">✓  Got it — Open App</button>
+  <div class="snooze-row" id="snooze-row"></div>
+  <div class="keyboard-hint" id="kb-hint">Press Enter, Space, or Esc to dismiss</div>
+  <div class="realert-hint" id="realert-hint"></div>
+</div>
+
+<script>
+  let _alertData = {};
+  function dismiss() { window.api.dismissAlert(_alertData); }
+  function snooze(minutes) { window.api.snoozeAlert(minutes, _alertData); }
+
+  function renderSnooze(priority) {
+    const row  = document.getElementById('snooze-row');
+    const hint = document.getElementById('kb-hint');
+    const realertHint = document.getElementById('realert-hint');
+
+    if (priority === 'urgent') {
+      row.innerHTML = '';
+      hint.innerHTML = '🚨 Urgent — Press Enter or Space to dismiss';
+      hint.style.color = 'rgba(255,179,71,.7)';
+    } else if (priority === 'high') {
+      row.innerHTML = `
+        <button class="btn-snooze" onclick="snooze(15)">Snooze 15m</button>
+        <button class="btn-snooze" onclick="snooze(60)">Snooze 1h</button>`;
+      hint.innerHTML = '🔴 High priority — Press Enter or Space to dismiss';
+      hint.style.color = 'rgba(245,184,219,.6)';
+    } else {
+      row.innerHTML = `
+        <button class="btn-snooze" onclick="snooze(15)">Snooze 15m</button>
+        <button class="btn-snooze" onclick="snooze(60)">Snooze 1h</button>`;
+      hint.innerHTML = 'Press Enter, Space, or Esc to dismiss';
+      hint.style.color = '';
+    }
+    realertHint.textContent = 'Will re-alert every 10 min if not completed.';
+  }
+
+  window.api.onNewAlert((data) => {
+    _alertData = data;
+    document.getElementById('assignee').textContent = data.assignee_name || 'You';
+    document.getElementById('reminder-msg').textContent = data.title || 'Reminder!';
+    renderSnooze(data.priority || 'normal');
+    playBeep();
+  });
+
+  // Init with normal on load
+  renderSnooze('normal');
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (['Enter', ' ', 'Escape'].includes(e.key)) dismiss();
+  });
+
+  // Audio beep
+  let audioCtx;
+  function playBeep() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [880, 1100, 880, 1320];
+      notes.forEach((freq, i) => {
+        const osc  = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        const t = audioCtx.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.35, t + 0.05);
+        gain.gain.linearRampToValueAtTime(0, t + 0.16);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      });
+    } catch(e) { console.warn('Audio error:', e); }
+  }
+
+  // Auto-play on load (data sent after load event)
+  setTimeout(playBeep, 400);
+</script>
+</body>
+</html>

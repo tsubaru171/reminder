@@ -1,0 +1,2857 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+<title>RemindBoard</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─── PASTE YOUR CREDENTIALS HERE (or leave blank to enter on first run) ─── */
+/* They will be saved automatically after first entry.                        */
+
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #F5F0E8;
+  color: #2C2C2A;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── SCREENS ─── */
+.screen {
+  display: none;
+  height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+.screen.active { display: flex; }
+
+/* Khi cửa sổ thấp: bám top để không bị cấn */
+@media (max-height: 680px) {
+  .screen { justify-content: flex-start; padding-top: 20px; }
+}
+
+/* ─── SETUP / AUTH SHARED ─── */
+.brand-logo {
+  width: 60px; height: 60px; border-radius: 18px;
+  background: #F5B8DB;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.brand-title { font-size: 28px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 6px; text-align: center; font-family: "Fraunces", serif; }
+.brand-sub   { font-size: 15px; color: #888780; margin-bottom: 18px; text-align: center; max-width: 360px; line-height: 1.55; }
+
+.card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px 24px;
+  width: 100%;
+  max-width: 420px;
+}
+.field-label {
+  font-size: 12px; font-weight: 800; color: #888780;
+  text-transform: uppercase; letter-spacing: .07em;
+  margin: 14px 0 5px;
+}
+.field-label:first-child { margin-top: 0; }
+.inp {
+  width: 100%;
+  background: #F5F0E8;
+  border: none; outline: none;
+  color: #2C2C2A;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  padding: 10px 13px;
+  border-radius: 11px;
+  transition: box-shadow .15s;
+}
+.inp:focus { box-shadow: 0 0 0 2.5px #9AAB63; }
+.inp::placeholder { color: #B4B2A9; }
+
+.btn { display: block; width: 100%; border: none; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px; padding: 11px; border-radius: 12px; transition: background .12s, transform .1s; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: #2C2C2A; color: #F5F0E8; margin-top: 16px; }
+.btn-primary:hover { background: #444441; }
+.btn-secondary { background: #EDE8DF; color: #444441; margin-top: 8px; }
+.btn-secondary:hover { background: #D3D1C7; }
+.btn-green { background: #9AAB63; color: #fff; margin-top: 16px; }
+.btn-green:hover { background: #7d9147; }
+
+.err-msg { font-size: 14px; color: #D85A30; margin-top: 8px; min-height: 16px; text-align: center; }
+.or-sep  { text-align: center; font-size: 14px; color: #B4B2A9; margin: 10px 0; }
+
+/* ─── AUTH TABS ─── */
+.auth-tab-bar {
+  display: flex; gap: 0; margin-bottom: 18px;
+  background: #EDE8DF; border-radius: 12px; padding: 3px;
+  width: 100%; max-width: 380px;
+}
+.auth-tab {
+  flex: 1; padding: 8px; border-radius: 9px;
+  border: none; background: none;
+  font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+  color: #888780; cursor: pointer; transition: all .15s;
+}
+.auth-tab.active { background: #fff; color: #2C2C2A; }
+
+/* ─── WS PICKER ─── */
+.ws-list { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 380px; margin-bottom: 14px; max-height: 220px; overflow-y: auto; }
+.ws-item {
+  background: #fff; border-radius: 14px; padding: 13px 16px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  border: 2px solid transparent; transition: border-color .15s;
+}
+.ws-item:hover { border-color: #9AAB63; }
+.ws-item-icon { width: 38px; height: 38px; border-radius: 12px; background: #F5F0E8; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; overflow: hidden; }
+.ws-item-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.ws-item-name { font-size: 14px; font-weight: 600; color: #2C2C2A; }
+.ws-item-meta { font-size: 11px; color: #888780; margin-top: 1px; }
+
+/* ─── MAIN APP LAYOUT ─── */
+#screen-app { flex-direction: row; padding: 0; align-items: stretch; justify-content: flex-start; }
+
+/* ─── SIDEBAR NAV ─── */
+.sidebar {
+  width: 64px; background: #EDE8DF;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 0; gap: 4px; flex-shrink: 0;
+  height: 100vh;
+}
+.nav-logo {
+  width: 36px; height: 36px; border-radius: 12px;
+  background: #F5B8DB; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px; cursor: pointer;
+  transition: transform .15s;
+}
+.nav-logo:hover { transform: scale(1.08); }
+.nav-ws-label {
+  font-size: 9px; font-weight: 700; color: #993556;
+  text-align: center; max-width: 56px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 4px; margin-bottom: 6px;
+}
+.nav-btn {
+  width: 40px; height: 40px; border-radius: 14px;
+  border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #888780;
+  transition: background .15s; position: relative;
+}
+.nav-btn:hover  { background: #F5F0E8; color: #2C2C2A; }
+.nav-btn.active { background: #F5F0E8; }
+.nav-btn.active svg { stroke: #9AAB63; }
+.nav-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #9AAB63; color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+#nb-account.active .nav-avatar { box-shadow: 0 0 0 2px #9AAB63; }
+.nav-tooltip {
+  display: none; position: absolute; left: 50px;
+  background: #2C2C2A; color: #F5F0E8;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11px; white-space: nowrap; z-index: 99; pointer-events: none;
+}
+.nav-btn:hover .nav-tooltip { display: block; }
+.nav-notif-badge {
+  position: absolute; top: 7px; right: 7px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #F5B8DB; border: 2px solid #EDE8DF;
+  display: none;
+}
+.nav-spacer { flex: 1; }
+
+/* ─── PAGES ─── */
+.pages { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.page { display: none; flex: 1; flex-direction: column; overflow: hidden; align-items: stretch; justify-content: flex-start; }
+.page.active { display: flex; }
+
+/* ─── PAGE HEADER ─── */
+.page-header {
+  padding: 16px 30px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  width: 100%;
+}
+.page-title { font-size: 24px; font-weight: 700; letter-spacing: -.3px; font-family: "Fraunces", serif; }
+.page-sub   { font-size: 13px; color: #888780; margin-top: 1px; }
+.clock-badge { font-size: 13px; color: #888780; background: #EDE8DF; padding: 4px 11px; border-radius: 20px; font-variant-numeric: tabular-nums; }
+
+/* ─── TAB BARS ─── */
+.tab-bar {
+  display: flex;
+  padding: 0 30px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.tab-btn {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  font-size: 14px; font-weight: 800; color: #888780;
+  border: none; background: #EDE8DF;
+  cursor: pointer;
+  border-radius: 24px;
+  font-family: 'Nunito', sans-serif;
+  transition: background .12s, color .12s;
+}
+.tab-btn.active { background: #9AAB63; color: #fff; }
+
+.subtab-bar {
+  display: flex;
+  gap: 6px;
+  padding: 0 30px 10px;
+  flex-shrink: 0;
+  width: 100%;
+}
+.subtab-btn {
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 14px; font-weight: 800;
+  cursor: pointer; background: #EDE8DF; color: #888780;
+  border: none; font-family: 'Nunito', sans-serif;
+  transition: background .12s, color .12s;
+}
+.subtab-btn.active { background: #9AAB63; color: #fff; }
+
+/* ─── SCROLLABLE BODY ─── */
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 30px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.page-body > * {
+  width: 100%;
+  flex-shrink: 0;
+}
+.form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 30px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.form-body > * {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ─── SECTION LABEL ─── */
+.sec-label {
+  font-size: 11px; font-weight: 700; color: #888780;
+  text-transform: uppercase; letter-spacing: .08em;
+  margin: 8px 0 9px; padding-top: 4px;
+}
+
+/* ─── DEADLINE CHIPS ─── */
+.dl { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.dl.over   { background: #FBEAF0; color: #993556; }
+.dl.soon   { background: #FAEEDA; color: #854F0B; }
+.dl.today  { background: #EAF3DE; color: #3B6D11; }
+.dl.future { background: #F1EFE8; color: #5F5E5A; }
+
+/* ─── PRIORITY DOT (legacy, kept for compatibility) ─── */
+.prio { display: none; }
+
+/* ─── PRIORITY BADGE ─── */
+.prio-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.prio-badge.high   { background: #FBEAF0; color: #993556; }
+.prio-badge.urgent { background: #FFF0E0; color: #B84D00; }
+/* Normal: hidden — không chiếm chỗ */
+.prio-badge.normal { display: none; }
+
+/* ─── LEFT BORDER ACCENT ─── */
+.my-card.prio-high   { border-left: 3px solid #F5B8DB; }
+.my-card.prio-urgent { border-left: 3px solid #FFB347; }
+.my-card.prio-normal { border-left: 3px solid transparent; }
+.ac-card.prio-high   { border-left: 3px solid #F5B8DB; }
+.ac-card.prio-urgent { border-left: 3px solid #FFB347; }
+.ac-card.prio-normal { border-left: 3px solid transparent; }
+.summary-chip.high-prio { background: #FBEAF0; color: #993556; cursor: pointer; transition: opacity .12s; }
+.summary-chip.high-prio:hover { opacity: .8; }
+.summary-chip.high-prio.active { box-shadow: 0 0 0 2px #993556; }
+
+/* ─── KANBAN BOARD (Assigned by me) ─── */
+.kanban-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; align-items: start; }
+.kanban-col { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.kanban-col-hd { border-radius: 10px; padding: 7px 12px; font-size: 12px; font-weight: 800; letter-spacing: .04em; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; }
+.kanban-col-hd.high   { background: #FBEAF0; color: #993556; }
+.kanban-col-hd.normal { background: #FAEEDA; color: #854F0B; }
+.kanban-col-hd.low    { background: #E6F1FB; color: #185FA5; }
+.kanban-count { font-size: 11px; font-weight: 700; opacity: .7; }
+.kanban-empty { font-size: 12px; color: #B4B2A9; padding: 8px 0; text-align: center; }
+
+/* ─── TEAM / ASSIGNEE TAG ─── */
+.tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+
+/* ─── MY TASKS CARD ─── */
+.my-card { background: #fff; border-radius: 16px; padding: 13px 15px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 11px; }
+.my-card.done { opacity: .38; }
+.check-circle {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #D3D1C7; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  transition: all .15s;
+}
+.check-circle.checked { background: #9AAB63; border-color: #9AAB63; }
+.my-title  { font-size: 15px; font-weight: 700; color: #2C2C2A; line-height: 1.35; margin-bottom: 5px; }
+.my-card.done .my-title { text-decoration: line-through; color: #B4B2A9; }
+.my-meta   { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.from-label { font-size: 13px; color: #888780; }
+
+/* ─── ASSIGNED-BY-ME CARD ─── */
+.ac-card   { background: #fff; border-radius: 16px; margin-bottom: 9px; overflow: hidden; }
+.ac-head   { padding: 13px 15px; cursor: pointer; }
+.ac-top    { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.ac-title  { font-size: 15px; font-weight: 700; color: #2C2C2A; line-height: 1.35; flex: 1; }
+.ac-card.done .ac-title { text-decoration: line-through; color: #B4B2A9; }
+.ac-chevron { font-size: 15px; color: #B4B2A9; transition: transform .2s; }
+.ac-chevron.open { transform: rotate(180deg); }
+.ac-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ac-meta   { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 7px; }
+.prog-row  { display: flex; align-items: center; gap: 8px; }
+.prog-bg   { flex: 1; height: 5px; background: #F5F0E8; border-radius: 3px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+.prog-lbl  { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.ac-panel  { display: none; border-top: 1px solid #F5F0E8; padding: 11px 15px; }
+.ac-panel.open { display: block; }
+.mem-row   { display: flex; align-items: center; justify-content: space-between; padding: 6px 9px; border-radius: 10px; margin-bottom: 5px; }
+.mem-row.done    { background: #F0FAF0; }
+.mem-row.pending { background: #FFF8F0; }
+.mem-left  { display: flex; align-items: center; gap: 7px; }
+.avatar    { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.mem-name  { font-size: 14px; font-weight: 700; color: #2C2C2A; }
+.mem-status { font-size: 13px; font-weight: 900; }
+.mem-status.done    { color: #3B6D11; }
+.mem-status.pending { color: #854F0B; }
+
+/* ─── BUTTONS (small) ─── */
+.btn-done-sm { background: #EAF3DE; border: none; color: #3B6D11; font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; cursor: pointer; transition: background .12s; }
+.btn-done-sm:hover { background: #C8DBA0; }
+.btn-reremind { background: #F5D867; border: none; color: #633806; font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; cursor: pointer; }
+.btn-reremind:hover { background: #EFC84A; }
+.btn-xs { background: #EDE8DF; border: none; color: #444441; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 500; padding: 6px 13px; border-radius: 20px; cursor: pointer; }
+.btn-xs:hover { background: #D3D1C7; }
+
+/* ─── EDIT MODAL ─── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-box { background: #F5F0E8; border-radius: 20px; width: 100%; max-width: 440px; padding: 22px 22px 18px; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.modal-actions .btn { margin-top: 0; flex: 1; }
+
+/* ─── FORM COLLAPSIBLE ─── */
+.form-collapsible-hd { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 2px 0; }
+.form-collapsible-hd .form-label { margin: 0; cursor: pointer; }
+.form-collapse-arrow { font-size: 11px; color: #B4B2A9; transition: transform .2s; margin-left: 6px; }
+.form-collapse-arrow.open { transform: rotate(180deg); }
+.form-collapsible-body.collapsed { display: none; }
+
+/* ─── FORM SECTION CARDS ─── */
+.form-section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-top: 10px;
+  width: 100%;
+}
+.form-section-hd {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 11px;
+}
+.form-section-icon {
+  width: 28px; height: 28px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.form-section-title {
+  font-size: 12px; font-weight: 800; color: #888780;
+  text-transform: uppercase; letter-spacing: .07em;
+}
+/* Override form-input inside cards — remove double white */
+.form-section .form-input { background: #F5F0E8; }
+.form-section .form-input:focus { background: #F5F0E8; }
+/* collapsible inside card */
+.form-section .form-collapsible-hd { margin-bottom: 0; }
+.form-section .form-collapsible-body { margin-top: 10px; }
+
+/* ─── SET REMINDER BUTTON ─── */
+.btn-set-reminder {
+  width: 100%; border: none; cursor: pointer;
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px;
+  padding: 14px; border-radius: 14px; margin-top: 14px;
+  background: linear-gradient(135deg, #9AAB63 0%, #7d9147 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(154,171,99,.35);
+  transition: transform .12s, box-shadow .12s;
+  letter-spacing: .01em;
+}
+.btn-set-reminder:hover  { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(154,171,99,.45); }
+.btn-set-reminder:active { transform: scale(.98); box-shadow: none; }
+
+/* ─── HOME SUMMARY CHIPS ─── */
+.home-summary { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+.summary-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.summary-chip.overdue { background: #FBEAF0; color: #993556; }
+.summary-chip.today   { background: #EAF3DE; color: #3B6D11; }
+.sec-label.danger { color: #993556; }
+
+/* ─── ICON BUTTONS (edit / delete) ─── */
+.btn-icon { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; color: #B4B2A9; font-size: 14px; transition: all .12s; line-height: 1; font-family: 'Nunito', sans-serif; font-weight: 500; }
+.btn-icon.edit:hover { color: #444441; background: #EDE8DF; }
+.btn-icon.del:hover  { color: #D85A30; background: #FEE2DA; }
+
+/* ─── NOTIFICATION COUNT BADGE ─── */
+.notif-count-badge { display: inline-flex; align-items: center; justify-content: center; background: #F5B8DB; color: #993556; font-size: 10px; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; margin-left: 5px; vertical-align: middle; }
+
+/* ─── SNOOZE BUTTONS (alert popup) ─── */
+.snooze-row { display: flex; gap: 8px; margin-top: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-snooze { background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.2); color: rgba(255,255,255,.7); padding: 8px 20px; font-family: 'Nunito', sans-serif; font-size: .8rem; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all .15s; }
+.btn-snooze:hover { background: rgba(255,255,255,.22); color: #fff; }
+.btn-danger { background: #FBEAF0; color: #D85A30; border: none; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 20px; cursor: pointer; }
+
+/* ─── FORM ELEMENTS ─── */
+.form-label { font-size: 11px; font-weight: 800; color: #888780; text-transform: uppercase; letter-spacing: .09em; margin: 13px 0 5px; }
+.form-label:first-child { margin-top: 0; }
+.form-note  { font-size: 12px; font-weight: 500; color: #B4B2A9; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+.form-input { width: 100%; background: #fff; border: none; color: #2C2C2A; font-family: 'Nunito', sans-serif; font-size: 15px; padding: 9px 13px; border-radius: 12px; outline: none; transition: box-shadow .15s; }
+.form-input:focus { box-shadow: 0 0 0 2.5px #9AAB63; }
+textarea.form-input { resize: vertical; min-height: 60px; }
+/* Force 24h on datetime pickers — hide AM/PM field as fallback */
+input[type="datetime-local"]::-webkit-datetime-edit-ampm-field { display: none; }
+input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
+.f2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.assign-mode-toggle { display: flex; background: #F5F0E8; border-radius: 12px; padding: 3px; gap: 2px; }
+.assign-mode-btn { flex: 1; border: none; background: transparent; cursor: pointer; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 600; color: #888780; padding: 7px 12px; border-radius: 9px; transition: all .15s; }
+.assign-mode-btn.active { background: #fff; color: #2C2C2A; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+/* ─── TEAMSPACE SELECTOR (form) ─── */
+.ts-select-row {
+  background: #fff; border-radius: 13px; padding: 9px 13px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; border: 2px solid transparent; margin-bottom: 6px;
+  transition: border-color .15s, background .15s;
+}
+.ts-select-row.selected { border-color: #9AAB63; background: #F0FAF0; }
+.ts-select-left { display: flex; align-items: center; gap: 9px; }
+.ts-icon-sm { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.ts-sel-name { font-size: 15px; font-weight: 600; color: #2C2C2A; }
+.ts-sel-sub  { font-size: 13px; color: #888780; margin-top: 1px; }
+.check-sm    { width: 17px; height: 17px; border-radius: 50%; border: 2px solid #D3D1C7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
+.ts-select-row.selected .check-sm { background: #9AAB63; border-color: #9AAB63; }
+.check-tick  { display: none; color: #fff; font-size: 10px; font-weight: 700; }
+.ts-select-row.selected .check-tick { display: block; }
+
+/* ─── EXTRA MEMBER CHIPS ─── */
+.chip-row { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 2px solid transparent; opacity: .45;
+  transition: opacity .12s;
+}
+.chip.selected { opacity: 1; border-color: #2C2C2A; }
+
+/* ─── TEAMSPACE PAGE CARDS ─── */
+.tsi-card  { background: #fff; border-radius: 16px; overflow: hidden; margin-bottom: 8px; }
+.tsi-head  { padding: 13px 15px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.tsi-left  { display: flex; align-items: center; gap: 11px; }
+.tsi-icon  { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.tsi-name  { font-size: 13px; font-weight: 600; color: #2C2C2A; }
+.tsi-meta  { font-size: 11px; color: #888780; margin-top: 2px; }
+.tsi-chevron { font-size: 11px; color: #B4B2A9; transition: transform .2s; }
+.tsi-chevron.open { transform: rotate(180deg); }
+.tsi-panel { display: none; border-top: 1px solid #F5F0E8; padding: 12px 15px; }
+.tsi-panel.open { display: block; }
+.tsi-sublabel { font-size: 11px; font-weight: 600; color: #888780; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.member-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.member-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 9px; background: #F5F0E8; border-radius: 9px; }
+.member-left { display: flex; align-items: center; gap: 7px; }
+.member-name { font-size: 16px; font-weight: 600; color: #2C2C2A; }
+.btn-remove  { background: none; border: none; color: #B4B2A9; cursor: pointer; font-size: 17px; padding: 1px 6px; border-radius: 6px; }
+.btn-remove:hover { color: #D85A30; background: #FEE2DA; }
+.pool { display: flex; gap: 5px; flex-wrap: wrap; }
+.pool-chip { padding: 4px 11px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; border: 2px solid transparent; opacity: .4; transition: opacity .12s; }
+.pool-chip.in-group { opacity: 1; border-color: #9AAB63; }
+.add-member-row { display: flex; gap: 7px; margin-top: 9px; }
+.add-member-row .form-input { flex: 1; padding: 7px 11px; font-size: 12px; }
+
+/* ─── CREATE TEAMSPACE BOX ─── */
+.create-box { background: #fff; border-radius: 16px; padding: 16px; margin-top: 6px; }
+.create-box-title { font-size: 13px; font-weight: 600; color: #2C2C2A; margin-bottom: 3px; }
+.create-box-sub   { font-size: 12px; color: #888780; margin-bottom: 12px; }
+
+/* ─── JOINED BANNER ─── */
+.joined-banner { background: #EAF3DE; border-radius: 13px; padding: 10px 13px; display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.joined-title  { font-size: 12px; font-weight: 600; color: #3B6D11; }
+.joined-sub    { font-size: 11px; color: #639922; }
+
+/* ─── NOTIFICATIONS ─── */
+.notif-item { background: #fff; border-radius: 14px; padding: 11px 13px; margin-bottom: 7px; display: flex; align-items: flex-start; gap: 9px; }
+.notif-item.read { opacity: .52; }
+.notif-icon-wrap { width: 30px; height: 30px; border-radius: 50%; background: #F5F0E8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; }
+.notif-title { font-size: 15px; font-weight: 800; color: #2C2C2A; line-height: 1.3; margin-bottom: 2px; }
+.notif-item.read .notif-title { font-weight: 500; color: #5F5E5A; }
+.notif-time  { font-size: 13px; color: #B4B2A9; }
+.notif-dot   { width: 8px; height: 8px; border-radius: 50%; background: #F5B8DB; flex-shrink: 0; margin-top: 4px; }
+.mark-all-btn { font-size: 12px; font-weight: 600; color: #9AAB63; background: none; border: none; cursor: pointer; font-family: 'Nunito', sans-serif; }
+
+/* ─── WORKSPACE SETTINGS ─── */
+.ws-hero { border-radius: 18px; padding: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; background: #F5B8DB; }
+.ws-hero-icon { width: 48px; height: 48px; border-radius: 15px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; overflow: hidden; }
+.ws-hero-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 13px; }
+.ws-hero-name { font-size: 16px; font-weight: 700; color: #4B1528; }
+.ws-hero-meta { font-size: 12px; color: #993556; margin-top: 2px; }
+.settings-card { background: #fff; border-radius: 16px; padding: 4px 16px; margin-bottom: 12px; }
+.settings-row  { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F5F0E8; }
+.settings-row:last-child { border-bottom: none; }
+
+/* Toggle switch */
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: #D4D2CA; border-radius: 24px; cursor: pointer; transition: background .2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .2s; }
+.toggle-switch input:checked + .toggle-slider { background: #9AAB63; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.settings-label { font-size: 13px; color: #888780; }
+.invite-box { background: #EAF3DE; border-radius: 13px; padding: 13px; margin-bottom: 12px; }
+.invite-box-title { font-size: 12px; font-weight: 600; color: #3B6D11; margin-bottom: 4px; }
+.invite-link-display { font-size: 12px; font-family: monospace; color: #3B6D11; background: #fff; padding: 8px 12px; border-radius: 9px; margin: 8px 0; word-break: break-all; }
+.copy-btn { background: #9AAB63; border: none; color: #fff; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; cursor: pointer; }
+.copy-btn:hover { background: #7d9147; }
+.member-ws-row  { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #F5F0E8; }
+.member-ws-row:last-child { border-bottom: none; }
+.member-ws-left { display: flex; align-items: center; gap: 9px; }
+.role-badge     { font-size: 14px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: #EDE8DF; color: #5F5E5A; }
+.role-badge.admin { background: #FBEAF0; color: #993556; }
+.role-badge.mod { background: #EAF3DE; color: #3B6D11; }
+.remember-row { display:flex; align-items:center; gap:10px; margin-top: 12px; }
+.remember-row label { font-size: 12px; color: #888780; font-weight: 600; cursor: pointer; user-select: none; }
+
+/* ─── EMPTY + LOADING ─── */
+.empty-state { text-align: center; padding: 50px 20px; color: #B4B2A9; font-size: 13px; }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 14px; left: 50%;
+  transform: translateX(-50%) translateY(50px);
+  background: #2C2C2A; color: #F5F0E8;
+  padding: 7px 18px; border-radius: 20px;
+  font-size: 12px; font-weight: 500;
+  transition: transform .25s ease;
+  pointer-events: none; z-index: 9999; white-space: nowrap;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); }
+
+/* ─── POPUP NOTIFICATIONS ─── */
+#popup-container {
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 9998; display: flex; flex-direction: column;
+  gap: 10px; pointer-events: none; width: 316px;
+}
+.popup-notif {
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 6px 28px rgba(0,0,0,.12);
+  padding: 14px 14px 10px; pointer-events: all;
+  transform: translateX(340px); opacity: 0;
+  transition: transform .32s cubic-bezier(.22,1,.36,1), opacity .32s;
+  border-left: 4px solid #9AAB63; overflow: hidden; cursor: pointer;
+}
+.popup-notif.show { transform: translateX(0); opacity: 1; }
+.popup-notif.hide { transform: translateX(340px); opacity: 0; transition: transform .22s ease-in, opacity .22s; }
+.popup-notif-hd  { display: flex; align-items: flex-start; gap: 10px; }
+.popup-notif-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.popup-notif-body { flex: 1; min-width: 0; }
+.popup-notif-type { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: #B4B2A9; margin-bottom: 2px; }
+.popup-notif-title { font-size: 13px; font-weight: 700; color: #2C2C2A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popup-notif-sub  { font-size: 12px; color: #888780; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popup-close { background: none; border: none; color: #C8C6BD; cursor: pointer; font-size: 13px; padding: 0; line-height: 1; flex-shrink: 0; transition: color .12s; }
+.popup-close:hover { color: #888780; }
+.popup-progress { height: 3px; background: #F0EDE6; margin-top: 10px; border-radius: 2px; overflow: hidden; }
+.popup-progress-bar { height: 100%; width: 100%; border-radius: 2px; transition: width linear; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ SETUP SCREEN ═══════════════════ -->
+<div class="screen" id="screen-setup">
+  <div class="brand-logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4537E" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+  </div>
+  <div class="brand-title">RemindBoard</div>
+  <div class="brand-sub">Kết nối với Supabase backend của bạn.</div>
+  <div class="card">
+    <div class="field-label">Supabase Project URL</div>
+    <input class="inp" id="setup-url" placeholder="https://xxxxxx.supabase.co">
+    <div class="field-label">Anon Public Key</div>
+    <input class="inp" id="setup-key" placeholder="eyJhbGciOiJIUzI1NiIs...">
+    <button class="btn btn-green" onclick="doSetup()">Kết nối →</button>
+    <div class="err-msg" id="setup-err"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ AUTH SCREEN ═══════════════════ -->
+<div class="screen" id="screen-auth">
+  <div class="brand-logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4537E" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+  </div>
+  <div class="brand-title">RemindBoard</div>
+  <div class="brand-sub">Đăng nhập hoặc tạo tài khoản mới.</div>
+  <div class="auth-tab-bar">
+    <button class="auth-tab active" onclick="setAuthMode('login', this)">Đăng nhập</button>
+    <button class="auth-tab" onclick="setAuthMode('signup', this)">Đăng ký</button>
+  </div>
+  <div class="card">
+    <div id="name-field" style="display:none">
+      <div class="field-label">Tên của bạn</div>
+      <input class="inp" id="auth-name" placeholder="Alex Bui">
+    </div>
+    <div class="field-label">Email</div>
+    <input class="inp" id="auth-email" type="email" placeholder="you@company.com">
+    <div class="field-label">Password</div>
+    <input class="inp" id="auth-pass"  type="password" placeholder="••••••••">
+    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Đăng nhập</button>
+    <button class="btn btn-secondary" id="auth-continue" style="display:none;margin-top:10px" onclick="continueWithSession()">Tiếp tục (đã đăng nhập)</button>
+    <div class="remember-row">
+      <input type="checkbox" id="auth-remember" checked>
+      <label for="auth-remember">Remember me</label>
+    </div>
+    <div class="err-msg" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ WORKSPACE PICKER ═══════════════════ -->
+<div class="screen" id="screen-ws">
+  <div class="brand-logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4537E" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+  </div>
+  <div class="brand-title">Chọn Workspace</div>
+  <div class="brand-sub">Workspace là nơi team bạn cùng làm việc.</div>
+  <div class="ws-list" id="ws-list"></div>
+  <div class="card">
+    <div class="field-label">Tạo workspace mới</div>
+    <input class="inp" id="new-ws-name" placeholder="Acme Corp, My Team…">
+    <button class="btn btn-primary" onclick="doCreateWs()">Tạo workspace</button>
+    <div class="or-sep">— hoặc join bằng invite code —</div>
+    <input class="inp" id="invite-input" placeholder="Dán invite code vào đây…">
+    <button class="btn btn-secondary" onclick="doJoinWs()">Join workspace</button>
+    <div class="err-msg" id="ws-err"></div>
+  </div>
+  <button class="btn btn-secondary" style="max-width:420px;margin-top:10px" onclick="backToAuth()">← Back to login</button>
+</div>
+
+<!-- ═══════════════════ MAIN APP ═══════════════════ -->
+<div class="screen" id="screen-app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- 1. Workspace -->
+    <div class="nav-btn" id="nb-ws" onclick="goto('workspace')">
+      <div id="nav-ws-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+      <span class="nav-tooltip" data-i18n="nav_workspace">Workspace</span>
+    </div>
+    <div class="nav-ws-label" id="nav-ws-label">—</div>
+    <!-- 2. Home -->
+    <div class="nav-btn active" id="nb-home" onclick="goto('home')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+      <span class="nav-tooltip" data-i18n="nav_home">Home</span>
+    </div>
+    <!-- 3. New reminder -->
+    <div class="nav-btn" id="nb-new" onclick="goto('new')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-tooltip" data-i18n="nav_new">New reminder</span>
+    </div>
+    <!-- 4. Teamspace -->
+    <div class="nav-btn" id="nb-ts" onclick="goto('teamspace')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/></svg>
+      <span class="nav-tooltip" data-i18n="nav_teamspace">Teamspace</span>
+    </div>
+    <!-- 5. Notifications -->
+    <div class="nav-btn" id="nb-notif" onclick="goto('notif')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <div class="nav-notif-badge" id="notif-badge"></div>
+      <span class="nav-tooltip" data-i18n="nav_notif">Notifications</span>
+    </div>
+    <div class="nav-spacer"></div>
+    <!-- 5. Account -->
+    <div class="nav-btn" id="nb-account" onclick="goto('account')">
+      <div class="nav-avatar" id="nav-avatar-btn">?</div>
+      <span class="nav-tooltip" data-i18n="nav_account">Account</span>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+  <div class="pages">
+
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="home-greeting">Good morning 👋</div>
+          <div class="page-sub"  id="home-ws-name">—</div>
+        </div>
+        <div class="clock-badge" id="clock">00:00:00</div>
+      </div>
+      <div class="tab-bar" id="home-tabs">
+        <button class="tab-btn active" onclick="switchHomeTab('mine', this)" data-i18n="tab_mine">Assigned to me</button>
+        <button class="tab-btn"        onclick="switchHomeTab('byMe', this)" data-i18n="tab_byme">Assigned by me</button>
+      </div>
+      <div class="subtab-bar" id="home-subtabs" style="display:none">
+        <button class="subtab-btn active" id="st-pending" onclick="switchSubTab('pending', this)" data-i18n="tab_pending">Pending</button>
+        <button class="subtab-btn"        id="st-done"    onclick="switchSubTab('done', this)" data-i18n="tab_done">Done</button>
+      </div>
+      <div class="page-body" id="home-body"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- NEW REMINDER -->
+    <div class="page" id="page-new">
+      <div class="page-header"><div>
+        <div class="page-title">New reminder</div>
+        <div class="page-sub" data-i18n="sub_new">Tạo và assign cho team</div>
+      </div><div class="clock-badge">00:00:00</div></div>
+      <div class="form-body">
+
+        <!-- Section 1: Content -->
+        <div class="form-section" style="margin-top:4px">
+          <div class="form-section-hd">
+            <div class="form-section-icon" style="background:#F5B8DB">✏️</div>
+            <span class="form-section-title" data-i18n="form_content">Nội dung</span>
+          </div>
+          <input class="form-input" type="text" id="f-title" data-i18n-ph="form_title_ph" placeholder="Ngắn gọn, rõ ràng…">
+          <textarea class="form-input" id="f-desc" data-i18n-ph="form_desc_ph" placeholder="Chi tiết thêm (optional)…" style="margin-top:8px"></textarea>
+        </div>
+
+        <!-- Section 2: Time & Priority -->
+        <div class="form-section">
+          <div class="form-section-hd">
+            <div class="form-section-icon" style="background:#F5D867">🕐</div>
+            <span class="form-section-title" data-i18n="form_time_prio">Thời gian &amp; ưu tiên</span>
+          </div>
+          <div class="f2col">
+            <div>
+              <div class="form-label" style="margin-top:0" data-i18n="form_datetime">Date &amp; time</div>
+              <input class="form-input" type="datetime-local" lang="en-GB" id="f-time">
+            </div>
+            <div>
+              <div class="form-label" style="margin-top:0" data-i18n="form_priority">Priority</div>
+              <select class="form-input" id="f-priority">
+                <option value="normal">Normal</option>
+                <option value="high">High 🔴</option>
+                <option value="urgent">Urgent 🚨</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Repeat (collapsible) -->
+        <div class="form-section">
+          <div class="form-collapsible-hd" onclick="toggleFormSection('repeat-body','repeat-arrow')">
+            <div class="form-section-hd" style="margin-bottom:0">
+              <div class="form-section-icon" style="background:#B6CAEB">🔁</div>
+              <span class="form-section-title" data-i18n="form_repeat">Repeat</span>
+            </div>
+            <span class="form-collapse-arrow" id="repeat-arrow">▼</span>
+          </div>
+          <div class="form-collapsible-body collapsed" id="repeat-body">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;margin-top:2px">
+              <input type="checkbox" id="f-repeat-weekly">
+              <span style="font-size:13px;color:#888780;font-weight:600" data-i18n="form_repeat_weekly">Lặp theo ngày trong tuần</span>
+            </div>
+            <div class="chip-row" id="f-weekdays"></div>
+          </div>
+        </div>
+
+        <!-- Section 4: Assign -->
+        <div class="form-section">
+          <div class="form-section-hd">
+            <div class="form-section-icon" style="background:#C8DBA0">👥</div>
+            <span class="form-section-title" data-i18n="form_assign">Assign to</span>
+          </div>
+          <div class="assign-mode-toggle" style="background:#F5F0E8">
+            <button class="assign-mode-btn" id="mode-me" onclick="setAssignMode('me')" data-i18n="form_just_me">Just me</button>
+            <button class="assign-mode-btn active" id="mode-teamspace" onclick="setAssignMode('teamspace')">Teamspace</button>
+          </div>
+          <div id="f-ts-section" style="margin-top:10px">
+            <div class="form-label" style="margin-top:0" data-i18n="form_select_ts">Chọn teamspace</div>
+            <div id="f-ts-list"><div class="empty-state" style="padding:8px 0">Loading…</div></div>
+            <div style="margin-top:6px">
+              <div class="form-collapsible-hd" onclick="toggleFormSection('extra-body','extra-arrow')">
+                <div class="form-label" style="margin-top:0;margin-bottom:0"><span data-i18n="form_extra_mem">Add thêm member</span> <span class="form-note" data-i18n="form_extra_note">(ngoài teamspace)</span></div>
+                <span class="form-collapse-arrow" id="extra-arrow">▼</span>
+              </div>
+              <div class="form-collapsible-body collapsed" id="extra-body" style="margin-top:8px">
+                <div class="chip-row" id="f-extra-chips"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-set-reminder" onclick="createReminder()" data-i18n="btn_set_reminder">＋ Set reminder</button>
+      </div>
+    </div>
+
+    <!-- TEAMSPACE -->
+    <div class="page" id="page-teamspace">
+      <div class="page-header"><div>
+        <div class="page-title">Teamspace</div>
+        <div class="page-sub" data-i18n="sub_teamspace">Nhóm người trong workspace</div>
+      </div><div class="clock-badge">00:00:00</div></div>
+      <div class="tab-bar" id="ts-tabs">
+        <button class="tab-btn active" onclick="switchTsTab('my',    this)" data-i18n="ts_my">My spaces</button>
+        <button class="tab-btn"        onclick="switchTsTab('joined',this)" data-i18n="ts_joined">Joined spaces</button>
+      </div>
+      <div class="page-body" id="ts-body"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="page" id="page-notif">
+      <div class="page-header"><div>
+          <div class="page-title">Notifications</div>
+          <div class="page-sub" id="notif-sub">—</div>
+        </div><div class="clock-badge">00:00:00</div></div>
+      <div style="display:flex;justify-content:flex-end;padding:0 30px 8px">
+        <button class="mark-all-btn" onclick="markAllRead()" data-i18n="mark_all_read">Mark all read</button>
+      </div>
+      <div class="page-body" id="notif-body"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- WORKSPACE SETTINGS -->
+    <div class="page" id="page-workspace">
+      <div class="page-header"><div>
+        <div class="page-title">Workspace</div>
+        <div class="page-sub" data-i18n="sub_workspace">Cài đặt và members</div>
+      </div><div class="clock-badge">00:00:00</div></div>
+      <div class="page-body" id="ws-body"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <!-- ACCOUNT -->
+    <div class="page" id="page-account">
+      <div class="page-header"><div>
+        <div class="page-title">Account</div>
+        <div class="page-sub" data-i18n="sub_account">Thông tin cá nhân</div>
+      </div><div class="clock-badge">00:00:00</div></div>
+      <div class="page-body" id="account-body"><div class="empty-state">Loading…</div></div>
+    </div>
+
+  </div><!-- /pages -->
+</div><!-- /screen-app -->
+
+<!-- EDIT REMINDER MODAL -->
+<div class="modal-overlay" id="edit-modal" style="display:none" onclick="closeEditModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title" data-i18n="edit_reminder_title">Edit Reminder</div>
+    <div class="form-label" style="margin-top:0" data-i18n="edit_lbl_title">Title</div>
+    <input class="form-input" id="edit-title" data-i18n-ph="edit_lbl_title" placeholder="Title…">
+    <div class="form-label" data-i18n="edit_lbl_desc">Description</div>
+    <textarea class="form-input" id="edit-desc" placeholder="Optional…"></textarea>
+    <div class="f2col" style="margin-top:8px">
+      <div>
+        <div class="form-label" style="margin-top:0" data-i18n="edit_lbl_datetime">Date &amp; time</div>
+        <input class="form-input" type="datetime-local" lang="en-GB" id="edit-time">
+      </div>
+      <div>
+        <div class="form-label" style="margin-top:0" data-i18n="edit_lbl_priority">Priority</div>
+        <select class="form-input" id="edit-priority">
+          <option value="normal">Normal</option>
+          <option value="high">High 🔴</option>
+          <option value="urgent">Urgent 🚨</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditModal()" data-i18n="btn_cancel">Cancel</button>
+      <button class="btn btn-primary" style="background:#9AAB63" onclick="saveReminderEdit()" data-i18n="btn_save_changes">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="popup-container"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Load config first -->
+<script src="config.js"></script>
+
+<!-- ═══════════════════ APP LOGIC ═══════════════════ -->
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ── window.api polyfill ────────────────────────────────────────────────────────
+// Nếu chạy trong Electron → dùng window.api từ preload.js
+// Nếu chạy trong browser thường → dùng localStorage làm fallback
+if (!window.api) {
+  window.api = {
+    getConfig: async () => {
+      try { return JSON.parse(localStorage.getItem('rb_config') || '{}'); }
+      catch { return {}; }
+    },
+    saveConfig: async (cfg) => {
+      localStorage.setItem('rb_config', JSON.stringify(cfg));
+      return true;
+    },
+    showAlert: async (r) => {
+      // Browser fallback: dùng alert() thay vì fullscreen Electron window
+      alert(`⏰ REMINDER\n\n${r.title}\n\nFor: ${r.assignee_name || 'You'}`);
+    },
+    dismissAlert: () => {},
+    openMain:     () => {},
+    openExternal: (url) => window.open(url, '_blank'),
+    onNewAlert:   (cb)  => {},  // No-op in browser (no IPC)
+  };
+  console.info('[RemindBoard] Running in browser mode — using localStorage for config');
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── Color helpers ──────────────────────────────────────────────────────────────
+const MC = [
+  {bg:'#FBEAF0',fg:'#993556'},{bg:'#EAF3DE',fg:'#3B6D11'},
+  {bg:'#E6F1FB',fg:'#185FA5'},{bg:'#FAEEDA',fg:'#854F0B'},
+  {bg:'#F1EFE8',fg:'#5F5E5A'},{bg:'#EDE9FE',fg:'#534AB7'},
+];
+const TC = [
+  {bg:'#F5B8DB',dot:'#D4537E'},{bg:'#F5D867',dot:'#854F0B'},
+  {bg:'#B6CAEB',dot:'#185FA5'},{bg:'#C8DBA0',dot:'#3B6D11'},
+  {bg:'#F0C9BE',dot:'#993C1D'},
+];
+const mc = n => { let h=0; for (const c of n) h=(h*31+c.charCodeAt(0))%MC.length; return MC[h]; };
+const tc = i => TC[i % TC.length];
+
+// ── Locale-independent date/time formatters ───────────────────────────────────
+const MONTHS_VI = ['Th1','Th2','Th3','Th4','Th5','Th6','Th7','Th8','Th9','Th10','Th11','Th12'];
+const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmt24(d) {
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  return `${hh}:${mm}:${ss}`;
+}
+function fmtDeadline(d) {
+  const months = lang === 'vi' ? MONTHS_VI : MONTHS_EN;
+  const mon = months[d.getMonth()];
+  const day = d.getDate();
+  const hh  = String(d.getHours()).padStart(2,'0');
+  const mm  = String(d.getMinutes()).padStart(2,'0');
+  return `${day} ${mon}, ${hh}:${mm}`;
+}
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Render workspace icon: data URI or http URL → <img>, else treat as emoji
+const wsIconHtml = icon => (icon && (icon.startsWith('data:') || icon.startsWith('http') || icon.startsWith('/')))
+  ? `<img src="${icon.startsWith('data:') ? icon : esc(icon)}" alt="workspace icon">`
+  : (icon || '🏠');
+const ago = t => {
+  const d = Date.now() - new Date(t).getTime();
+  if (d < 60000)    return 'Just now';
+  if (d < 3600000)  return Math.floor(d/60000)  + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  return Math.floor(d/86400000) + 'd ago';
+};
+
+function dlChip(due, isDone) {
+  if (isDone) return '';
+  const diff = new Date(due).getTime() - Date.now();
+  const str  = fmtDeadline(new Date(due));
+  const ico  = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="5"/><path d="M6 3.5v2.5l2 1.2"/></svg>`;
+  if (diff < 0)          return `<span class="dl over">${ico}  Overdue · ${str}</span>`;
+  if (diff < 30*60000)   return `<span class="dl soon">${ico}  ${Math.ceil(diff/60000)}m · ${str}</span>`;
+  if (diff < 86400000)   return `<span class="dl today">${ico}  Today · ${str}</span>`;
+  return `<span class="dl future">${ico}  ${str}</span>`;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let sb = null, currentUser = null, currentWs = null;
+let wsMembers = [], teamspaces = [], reminders = [], notifications = [];
+let selTsId = null, extraAssignees = [], assignMode = 'teamspace';
+let homeTab = 'mine', subTab = 'pending', tsTab = 'my';
+let editingReminderId = null;
+let filterHighOnly = false;
+let authMode = 'login';
+const firedKeys = new Set();
+const pendingReschedules = new Map(); // reminderId → timeoutId
+let clockInterval = null;
+let realtimeCh = null;
+const REMEMBER_KEY = 'rb_remember';
+let rememberMe = true;
+
+// ── i18n ───────────────────────────────────────────────────────────────────────
+let lang = localStorage.getItem('rb_lang') || 'vi';
+const LANGS = {
+  vi: {
+    nav_workspace:'Workspace', nav_home:'Home', nav_new:'New reminder',
+    nav_teamspace:'Teamspace', nav_notif:'Notifications', nav_account:'Account',
+    greet_morning:'Chào buổi sáng 👋', greet_afternoon:'Chào buổi chiều 👋',
+    greet_evening:'Chào buổi tối 👋', greet_night:'Xin chào 👋',
+    sub_new:'Tạo và assign cho team', sub_teamspace:'Nhóm người trong workspace',
+    sub_workspace:'Cài đặt và members', sub_account:'Thông tin cá nhân',
+    tab_mine:'Assigned to me', tab_byme:'Assigned by me',
+    tab_pending:'Pending', tab_done:'Done',
+    sec_overdue:'Quá hạn', sec_today:'Hôm nay', sec_upcoming:'Sắp tới', sec_done:'Đã xong',
+    chip_overdue:'overdue', chip_today:'due today', chip_high:'high priority',
+    empty_mine:'Không có task nào được assign cho bạn.',
+    empty_tasks:'Không có task nào.', kanban_empty:'Không có',
+    empty_byme_done:'Chưa có task nào hoàn thành.', empty_byme_pending:'Tất cả đã xong! 🎉',
+    form_content:'Nội dung', form_title_ph:'Ngắn gọn, rõ ràng…',
+    form_desc_ph:'Chi tiết thêm (optional)…', form_time_prio:'Thời gian & ưu tiên',
+    form_datetime:'Date & time', form_priority:'Priority', form_repeat:'Repeat',
+    form_repeat_weekly:'Lặp theo ngày trong tuần', form_assign:'Assign to',
+    form_just_me:'Just me', form_select_ts:'Chọn teamspace',
+    form_extra_mem:'Add thêm member', form_extra_note:'(ngoài teamspace)',
+    btn_set_reminder:'＋ Set reminder',
+    ts_my:'My spaces', ts_joined:'Joined spaces',
+    ts_create_title:'Tạo teamspace mới',
+    ts_create_sub:'Nhóm người lại để assign reminder nhanh hơn.',
+    ts_icon_name:'Icon & tên', ts_name_ph:'e.g. Marketing…',
+    ts_add_members:'Thêm members từ workspace', btn_create_ts:'Tạo teamspace',
+    ts_all_added:'Tất cả workspace members đã có trong teamspace.',
+    ts_members_lbl:'Members', ts_add_from_ws:'Thêm member từ workspace',
+    btn_add_members:'Thêm members',
+    mark_all_read:'Mark all read', empty_notif:'Không có thông báo.',
+    acc_display_lbl:'Tên hiển thị trong workspace', acc_display_ph:'Nhập tên hiển thị…',
+    btn_save:'Lưu thay đổi', acc_email:'Email', acc_current_ws:'Workspace hiện tại',
+    btn_signout:'Đăng xuất', acc_language:'Ngôn ngữ',
+    lang_vi:'🇻🇳 Tiếng Việt', lang_en:'🇬🇧 English',
+    toast_name_empty:'Nhập tên đi!', toast_name_saved:'Đã cập nhật tên! ✓',
+    toast_select_member:'Hãy chọn ít nhất 1 member trước.',
+    ts_empty_my:'Chưa tạo space nào.',
+    ts_joined_title:'Spaces bạn được add vào',
+    ts_joined_sub:'Reminders từ đây xuất hiện trong Home của bạn.',
+    ts_empty_joined:'Chưa được add vào space nào.',
+    notif_unread_fmt:'chưa đọc', notif_all_read:'Đã đọc hết',
+    ws_invite_section:'Invite teammates',
+    ws_invite_send:'Gửi link này cho teammates',
+    ws_copy_code:'Copy invite code',
+    ws_members_lbl:'Members',
+    ws_system:'Cài đặt hệ thống',
+    ws_autostart_title:'Khởi động cùng Windows',
+    ws_autostart_sub:'Tự chạy nền khi máy tính bật',
+    ws_signout_btn:'Đăng xuất',
+    toast_copied:'đã copy!',
+    edit_reminder_title:'Edit Reminder',
+    edit_lbl_title:'Title', edit_lbl_desc:'Description',
+    edit_lbl_datetime:'Date & time', edit_lbl_priority:'Priority',
+    btn_cancel:'Cancel', btn_save_changes:'Save changes',
+  },
+  en: {
+    nav_workspace:'Workspace', nav_home:'Home', nav_new:'New reminder',
+    nav_teamspace:'Teamspace', nav_notif:'Notifications', nav_account:'Account',
+    greet_morning:'Good morning 👋', greet_afternoon:'Good afternoon 👋',
+    greet_evening:'Good evening 👋', greet_night:'Good night 👋',
+    sub_new:'Create and assign to your team', sub_teamspace:'Group people in your workspace',
+    sub_workspace:'Settings and members', sub_account:'Personal info',
+    tab_mine:'Assigned to me', tab_byme:'Assigned by me',
+    tab_pending:'Pending', tab_done:'Done',
+    sec_overdue:'Overdue', sec_today:'Today', sec_upcoming:'Upcoming', sec_done:'Done',
+    chip_overdue:'overdue', chip_today:'due today', chip_high:'high priority',
+    empty_mine:'No tasks assigned to you.',
+    empty_tasks:'No tasks.', kanban_empty:'None',
+    empty_byme_done:'No completed tasks yet.', empty_byme_pending:'All done! 🎉',
+    form_content:'Content', form_title_ph:'Short and clear…',
+    form_desc_ph:'More details (optional)…', form_time_prio:'Time & priority',
+    form_datetime:'Date & time', form_priority:'Priority', form_repeat:'Repeat',
+    form_repeat_weekly:'Repeat by day of week', form_assign:'Assign to',
+    form_just_me:'Just me', form_select_ts:'Select teamspace',
+    form_extra_mem:'Add extra members', form_extra_note:'(outside teamspace)',
+    btn_set_reminder:'＋ Set reminder',
+    ts_my:'My spaces', ts_joined:'Joined spaces',
+    ts_create_title:'Create new teamspace',
+    ts_create_sub:'Group people to assign reminders faster.',
+    ts_icon_name:'Icon & name', ts_name_ph:'e.g. Marketing…',
+    ts_add_members:'Add members from workspace', btn_create_ts:'Create teamspace',
+    ts_all_added:'All workspace members are already in this teamspace.',
+    ts_members_lbl:'Members', ts_add_from_ws:'Add member from workspace',
+    btn_add_members:'Add members',
+    mark_all_read:'Mark all read', empty_notif:'No notifications.',
+    acc_display_lbl:'Display name in workspace', acc_display_ph:'Enter display name…',
+    btn_save:'Save changes', acc_email:'Email', acc_current_ws:'Current workspace',
+    btn_signout:'Sign out', acc_language:'Language',
+    lang_vi:'🇻🇳 Tiếng Việt', lang_en:'🇬🇧 English',
+    toast_name_empty:'Please enter a name!', toast_name_saved:'Name updated! ✓',
+    toast_select_member:'Please select at least 1 member.',
+    ts_empty_my:'No spaces created yet.',
+    ts_joined_title:'Spaces you\'ve been added to',
+    ts_joined_sub:'Reminders from here appear in your Home.',
+    ts_empty_joined:'You haven\'t been added to any space.',
+    notif_unread_fmt:'unread', notif_all_read:'All read',
+    ws_invite_section:'Invite teammates',
+    ws_invite_send:'Share this link with your teammates',
+    ws_copy_code:'Copy invite code',
+    ws_members_lbl:'Members',
+    ws_system:'System settings',
+    ws_autostart_title:'Launch with Windows',
+    ws_autostart_sub:'Auto-start in background on startup',
+    ws_signout_btn:'Sign out',
+    toast_copied:'copied!',
+    edit_reminder_title:'Edit Reminder',
+    edit_lbl_title:'Title', edit_lbl_desc:'Description',
+    edit_lbl_datetime:'Date & time', edit_lbl_priority:'Priority',
+    btn_cancel:'Cancel', btn_save_changes:'Save changes',
+  }
+};
+function t(key) { return (LANGS[lang] || LANGS.vi)[key] || LANGS.vi[key] || key; }
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return t('greet_morning');
+  if (h >= 12 && h < 18) return t('greet_afternoon');
+  if (h >= 18 && h < 22) return t('greet_evening');
+  return t('greet_night');
+}
+
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  const greetEl = document.getElementById('home-greeting');
+  if (greetEl) greetEl.textContent = getGreeting();
+}
+
+window.setLang = function(l) {
+  lang = l;
+  localStorage.setItem('rb_lang', l);
+  applyLang();
+  renderAccount();
+  renderHome();
+  renderTs();
+  renderNotif();
+  renderWsSettings();
+};
+
+function readRememberMe() {
+  try {
+    const v = localStorage.getItem(REMEMBER_KEY);
+    if (v === null) return true;
+    return v === 'true';
+  } catch {
+    return true;
+  }
+}
+
+function syncRememberCheckbox() {
+  const cb = document.getElementById('auth-remember');
+  if (cb) cb.checked = !!rememberMe;
+}
+
+function bindRememberCheckbox() {
+  const cb = document.getElementById('auth-remember');
+  if (!cb || cb.dataset.bound) return;
+  cb.dataset.bound = '1';
+  cb.checked = !!rememberMe;
+  cb.addEventListener('change', () => {
+    rememberMe = cb.checked;
+    localStorage.setItem(REMEMBER_KEY, rememberMe ? 'true' : 'false');
+    // Recreate Supabase client with new persistSession flag.
+    location.reload();
+  });
+}
+
+function syncContinueButton() {
+  const btn = document.getElementById('auth-continue');
+  if (!btn) return;
+  btn.style.display = currentUser ? 'block' : 'none';
+}
+
+window.continueWithSession = async function() {
+  if (!currentUser) return;
+  await loadWorkspaces();
+};
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+let toastTimer;
+window.toast = function(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 2600);
+};
+
+// ── POPUP NOTIFICATIONS ───────────────────────────────────────────────────────
+const _popupTimers = new Map();
+let _popupSeq = 0;
+
+window.showPopup = function({ icon, typeLabel, title, subtitle, accentColor = '#9AAB63', barColor = '#9AAB63', duration = 6000, onClick }) {
+  const container = document.getElementById('popup-container');
+  if (!container) return;
+
+  // Max 3 stacked — remove oldest if needed
+  const existing = container.querySelectorAll('.popup-notif');
+  if (existing.length >= 3) window.dismissPopup(existing[0].id);
+
+  const id = `pn-${++_popupSeq}`;
+  const el = document.createElement('div');
+  el.className = 'popup-notif';
+  el.id = id;
+  el.style.borderLeftColor = accentColor;
+  el.innerHTML = `
+    <div class="popup-notif-hd">
+      <div class="popup-notif-icon">${icon}</div>
+      <div class="popup-notif-body">
+        <div class="popup-notif-type">${typeLabel}</div>
+        <div class="popup-notif-title">${esc(title)}</div>
+        ${subtitle ? `<div class="popup-notif-sub">${esc(subtitle)}</div>` : ''}
+      </div>
+      <button class="popup-close" onclick="event.stopPropagation();window.dismissPopup('${id}')">✕</button>
+    </div>
+    <div class="popup-progress"><div class="popup-progress-bar" id="ppb-${id}" style="background:${barColor}"></div></div>`;
+
+  if (onClick) el.addEventListener('click', onClick);
+  container.appendChild(el);
+
+  // Slide in
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+
+  // Progress bar drain
+  const bar = document.getElementById(`ppb-${id}`);
+  if (bar) setTimeout(() => { bar.style.transitionDuration = `${duration}ms`; bar.style.width = '0%'; }, 60);
+
+  // Auto dismiss
+  _popupTimers.set(id, setTimeout(() => window.dismissPopup(id), duration));
+};
+
+window.dismissPopup = function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  clearTimeout(_popupTimers.get(id));
+  _popupTimers.delete(id);
+  el.classList.remove('show');
+  el.classList.add('hide');
+  setTimeout(() => el.remove(), 260);
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  ĐIỀN THÔNG TIN SUPABASE CỦA BẠN VÀO ĐÂY
+//  Lấy từ: supabase.com → Project Settings → API
+// ══════════════════════════════════════════════════════════════════
+const SUPABASE_URL      = '';   // VD: 'https://abcdefgh.supabase.co'
+const SUPABASE_ANON_KEY = '';   // VD: 'eyJhbGciOiJIUzI1NiIs...'
+// ══════════════════════════════════════════════════════════════════
+
+// ── INIT ─────────────────────────────────────────────────────────
+async function init() {
+  rememberMe = readRememberMe();
+  // 1. Ưu tiên config.js (file riêng dễ sửa)
+  const extCfg = window.REMINDBOARD_CONFIG || {};
+  const extUrl = extCfg.supabaseUrl     || '';
+  const extKey = extCfg.supabaseAnonKey || '';
+
+  if (extUrl && extUrl !== 'PASTE_URL_HERE' && extKey && extKey !== 'PASTE_KEY_HERE') {
+    await window.api.saveConfig({ supabaseUrl: extUrl, supabaseAnonKey: extKey }).catch(()=>{});
+    await connectSupabase(extUrl, extKey);
+    return;
+  }
+
+  // 2. Thử credentials hardcode trong index.html
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    await window.api.saveConfig({ supabaseUrl: SUPABASE_URL, supabaseAnonKey: SUPABASE_ANON_KEY }).catch(()=>{});
+    await connectSupabase(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return;
+  }
+
+  // 3. Thử config đã lưu trước đó
+  const cfg = await window.api.getConfig().catch(() => ({}));
+  const url = cfg?.supabaseUrl  || '';
+  const key = cfg?.supabaseAnonKey || '';
+  if (url && url !== 'PASTE_URL_HERE' && key && key !== 'PASTE_KEY_HERE') {
+    await connectSupabase(url, key);
+    return;
+  }
+
+  // 4. Chưa có → hiện màn hình setup
+  show('screen-setup');
+}
+
+async function connectSupabase(url, key) {
+  if (!url || !key) {
+    show('screen-setup');
+    document.getElementById('setup-err').textContent = 'Credentials trống. Điền URL và Key vào index.html.';
+    return;
+  }
+  console.log('[RB] Connecting to:', url.slice(0, 40) + '...');
+  sb = createClient(url, key, {
+    auth: {
+      persistSession: !!rememberMe,
+      storage: rememberMe ? localStorage : undefined,
+    },
+  });
+
+  // Check existing session
+  const { data: { session } } = await sb.auth.getSession();
+  // Always show login screen first (per product requirement).
+  // If there is a remembered session, offer a "Continue" shortcut.
+  currentUser = session?.user || null;
+  show('screen-auth');
+  syncRememberCheckbox();
+  bindRememberCheckbox();
+  syncContinueButton();
+}
+
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+window.doSetup = async function() {
+  const url = document.getElementById('setup-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('setup-key').value.trim();
+  const errEl = document.getElementById('setup-err');
+  errEl.textContent = '';
+
+  if (!url.startsWith('https://') || !key.startsWith('eyJ')) {
+    errEl.textContent = 'URL hoặc key không đúng định dạng.'; return;
+  }
+  try {
+    await window.api.saveConfig({ supabaseUrl: url, supabaseAnonKey: key });
+    await connectSupabase(url, key);
+  } catch(e) {
+    console.error('[RB] Auth error:', e);
+    errEl.textContent = e.message || 'Lỗi kết nối. Kiểm tra URL/Key trong index.html.';
+  }
+};
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+window.setAuthMode = function(mode, el) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('name-field').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản';
+};
+
+window.doAuth = async function() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const name  = document.getElementById('auth-name').value.trim();
+  const errEl = document.getElementById('auth-err');
+  errEl.textContent = '';
+
+  try {
+    if (authMode === 'signup') {
+      const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name || email.split('@')[0] } } });
+      if (error) throw error;
+      toast('Tài khoản đã tạo! Kiểm tra email để xác nhận nếu cần.');
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      syncContinueButton();
+      await loadWorkspaces();
+    }
+  } catch(e) { errEl.textContent = e.message; }
+};
+
+// ── WORKSPACE PICKER ──────────────────────────────────────────────────────────
+async function loadWorkspaces() {
+  show('screen-ws');
+  const { data } = await sb.from('workspace_members').select('workspace_id, role, workspaces(*)').eq('user_id', currentUser.id);
+  const list = data || [];
+  document.getElementById('ws-list').innerHTML = list.length
+    ? list.map(d => `
+      <div class="ws-item" onclick="selectWs('${d.workspaces.id}')">
+        <div class="ws-item-icon">${wsIconHtml(d.workspaces.icon)}</div>
+        <div>
+          <div class="ws-item-name">${esc(d.workspaces.name)}</div>
+          <div class="ws-item-meta">${d.role}</div>
+        </div>
+      </div>`).join('')
+    : '<div style="font-size:13px;color:#B4B2A9;text-align:center;padding:8px">Chưa có workspace nào.</div>';
+}
+
+window.selectWs = async function(wsId) {
+  const { data: ws } = await sb.from('workspaces').select('*').eq('id', wsId).single();
+  currentWs = ws;
+  await enterWorkspace();
+};
+
+window.doCreateWs = async function() {
+  const name = document.getElementById('new-ws-name').value.trim();
+  if (!name) return;
+  const errEl = document.getElementById('ws-err');
+  errEl.textContent = '';
+  try {
+    const displayName = currentUser.user_metadata?.display_name || currentUser.email.split('@')[0];
+
+    // Step 1: Insert workspace — RLS may block .select(), so handle null
+    const { data: ws, error: wsErr } = await sb
+      .from('workspaces')
+      .insert({ name, created_by: currentUser.id })
+      .select()
+      .single();
+
+    if (wsErr) throw wsErr;
+
+    // Step 2: If ws came back null (RLS blocked select), fetch it manually
+    let workspace = ws;
+    if (!workspace) {
+      const { data: fetched, error: fetchErr } = await sb
+        .from('workspaces')
+        .select('*')
+        .eq('name', name)
+        .eq('created_by', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (fetchErr || !fetched) throw new Error('Tạo workspace thất bại. Kiểm tra Supabase RLS policies.');
+      workspace = fetched;
+    }
+
+    // Step 3: Add creator as admin member
+    const { error: memErr } = await sb.from('workspace_members').insert({
+      workspace_id: workspace.id,
+      user_id: currentUser.id,
+      display_name: displayName,
+      email: currentUser.email,
+      role: 'admin',
+    });
+    if (memErr && !memErr.message.includes('duplicate')) throw memErr;
+
+    currentWs = workspace;
+    await enterWorkspace();
+  } catch(e) {
+    console.error('[RB] doCreateWs error:', e);
+    errEl.textContent = e.message || 'Lỗi không xác định';
+  }
+};
+
+window.doJoinWs = async function() {
+  const code = document.getElementById('invite-input').value.trim();
+  if (!code) return;
+  const errEl = document.getElementById('ws-err');
+  try {
+    errEl.textContent = '';
+    const { data: wsList, error } = await sb.rpc('workspace_by_invite', { p_invite_code: code });
+    if (error) throw error;
+    const ws = Array.isArray(wsList) ? wsList[0] : wsList;
+    if (!ws) throw new Error('Workspace không tìm thấy. Kiểm tra lại code.');
+    const displayName = currentUser.user_metadata?.display_name || currentUser.email.split('@')[0];
+    await sb.from('workspace_members').upsert({ workspace_id: ws.id, user_id: currentUser.id, display_name: displayName, email: currentUser.email, role: 'member' });
+    currentWs = ws;
+    await enterWorkspace();
+  } catch(e) { errEl.textContent = e.message; }
+};
+
+window.backToAuth = function() {
+  currentWs = null;
+  show('screen-auth');
+  syncRememberCheckbox();
+  bindRememberCheckbox();
+  syncContinueButton();
+};
+
+function updateNavWsIcon() {
+  const el = document.getElementById('nav-ws-icon');
+  if (!el) return;
+  const icon = currentWs?.icon || '';
+  if (icon.startsWith('data:') || icon.startsWith('http') || icon.startsWith('/')) {
+    el.innerHTML = `<img src="${icon}" style="width:40px;height:40px;object-fit:cover;border-radius:14px">`;
+  } else {
+    el.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
+  }
+}
+
+// ── ENTER WORKSPACE ───────────────────────────────────────────────────────────
+async function enterWorkspace() {
+  document.getElementById('nav-ws-label').textContent = currentWs.name.split(' ')[0];
+  updateNavWsIcon();
+  document.getElementById('home-ws-name').textContent = currentWs.name;
+  show('screen-app');
+  applyLang();
+
+  await Promise.all([loadWsMembers(), loadTeamspaces(), loadReminders(), loadNotifications()]);
+  // Update avatar initial
+  const me = myMember();
+  if (me?.display_name) {
+    const av = document.getElementById('nav-avatar-btn');
+    if (av) { av.textContent = me.display_name[0].toUpperCase(); const cl = mc(me.display_name); av.style.background = cl.bg; av.style.color = cl.fg; }
+  }
+  await ensureTeamspaceCreatorMembership();
+  startRealtime();
+  startClock();
+  setupRealertOnDismiss();
+  renderHome();
+  renderForm();
+}
+
+const memberById = uid => wsMembers.find(m => m.user_id === uid);
+const myMember   = ()  => memberById(currentUser.id);
+
+async function ensureTeamspaceCreatorMembership() {
+  // Với dữ liệu cũ: creator có thể chưa được chèn vào `teamspace_members`.
+  // Khi đó các thao tác admin/mod cần role sẽ bị RLS chặn.
+  const missing = (teamspaces || []).filter(ts =>
+    ts.created_by === currentUser.id &&
+    !(ts.teamspace_members || []).some(m => m.user_id === currentUser.id)
+  );
+  if (!missing.length) return;
+
+  await Promise.all(missing.map(ts =>
+    sb.from('teamspace_members').insert({
+      teamspace_id: ts.id,
+      user_id: currentUser.id,
+      role: 'admin',
+    }).catch(() => {})
+  ));
+
+  await loadTeamspaces();
+}
+
+async function loadWsMembers()     { const {data} = await sb.from('workspace_members').select('*').eq('workspace_id', currentWs.id); wsMembers = data||[]; }
+async function loadTeamspaces()    { const {data} = await sb.from('teamspaces').select('*, teamspace_members(user_id,role)').eq('workspace_id', currentWs.id); teamspaces = data||[]; }
+
+// Helper: luôn trả về danh sách member đã include creator
+// Dùng thay cho ts.teamspace_members ở MỌI chỗ hiển thị / tính toán
+function tsMems(ts) {
+  if (!ts) return [];
+  const members = ts.teamspace_members || [];
+  if (members.some(m => m.user_id === ts.created_by)) return members;
+  return [{ user_id: ts.created_by, role: 'admin' }, ...members];
+}
+async function loadReminders()     { const {data} = await sb.from('reminders').select('*, reminder_assignments(user_id,is_done,done_at)').eq('workspace_id', currentWs.id).order('due_at'); reminders = data||[]; }
+async function loadNotifications() { const {data} = await sb.from('notifications').select('*').eq('workspace_id', currentWs.id).eq('user_id', currentUser.id).order('created_at', {ascending:false}).limit(50); notifications = data||[]; updateBadge(); }
+
+// ── REALTIME ──────────────────────────────────────────────────────────────────
+function startRealtime() {
+  if (realtimeCh) sb.removeChannel(realtimeCh);
+  realtimeCh = sb.channel(`ws:${currentWs.id}`)
+    .on('postgres_changes', { event:'*', schema:'public', table:'reminders',            filter:`workspace_id=eq.${currentWs.id}` }, async () => { await loadReminders(); renderHome(); renderForm(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'reminder_assignments'                                           }, async () => { await loadReminders(); renderHome(); })
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications',   filter:`workspace_id=eq.${currentWs.id}` }, async (p) => {
+      if (p.new.user_id !== currentUser.id) return;
+      notifications.unshift(p.new);
+      updateBadge();
+      if (p.new.type === 'reremind') {
+        const r = reminders.find(r => r.id === p.new.reminder_id);
+        if (r) window.api.showAlert({ id: r.id, title: r.title, assignee_name: myMember()?.display_name || 'You', priority: r.priority || 'normal' });
+      } else if (p.new.type === 'assigned') {
+        showPopup({
+          icon: '📋',
+          typeLabel: lang === 'vi' ? 'Reminder mới' : 'New reminder',
+          title: p.new.title,
+          accentColor: '#5B9BD5',
+          barColor: '#5B9BD5',
+          duration: 7000,
+          onClick: () => goto('home'),
+        });
+      } else if (p.new.type === 'task_all_done') {
+        showPopup({
+          icon: '✅',
+          typeLabel: lang === 'vi' ? 'Team hoàn thành' : 'Team completed',
+          title: p.new.title,
+          subtitle: lang === 'vi' ? 'Tất cả thành viên đã done' : 'All members marked done',
+          accentColor: '#9AAB63',
+          barColor: '#9AAB63',
+          duration: 7000,
+          onClick: () => goto('home'),
+        });
+      } else if (p.new.type === 'teamspace_invited') {
+        showPopup({
+          icon: '👥',
+          typeLabel: lang === 'vi' ? 'Được thêm vào teamspace' : 'Added to teamspace',
+          title: p.new.title,
+          accentColor: '#C8DBA0',
+          barColor: '#9AAB63',
+          duration: 6000,
+          onClick: () => goto('teamspace'),
+        });
+      } else if (p.new.type === 'task_deleted') {
+        showPopup({
+          icon: '🗑️',
+          typeLabel: lang === 'vi' ? 'Task đã bị xóa' : 'Task deleted',
+          title: p.new.title,
+          subtitle: lang === 'vi' ? 'Reminder này đã bị người tạo xóa' : 'This reminder was removed by its creator',
+          accentColor: '#888780',
+          barColor: '#B4B2A9',
+          duration: 6000,
+        });
+        // Xóa luôn alert đang pending nếu có (assignee cũng có thể có re-alert)
+        const deletedId = p.new.reminder_id;
+        if (deletedId) {
+          clearTimeout(pendingReschedules.get(deletedId));
+          pendingReschedules.delete(deletedId);
+          window.api.cancelReminderAlerts?.(deletedId);
+          for (const key of firedKeys) {
+            if (key.startsWith(deletedId + ':')) firedKeys.delete(key);
+          }
+        }
+        await loadReminders(); renderHome();
+      }
+    })
+    .on('postgres_changes', { event:'*', schema:'public', table:'workspace_members',    filter:`workspace_id=eq.${currentWs.id}` }, async () => {
+      await loadWsMembers();
+      await loadTeamspaces();
+      renderWsSettings();
+      if (document.getElementById('page-teamspace')?.classList.contains('active')) renderTs();
+    })
+    .subscribe();
+}
+
+// ── CLOCK + DUE CHECKER ───────────────────────────────────────────────────────
+function getNextWeeklyDueAt(dueIso, repeatWeekdays) {
+  const days = (repeatWeekdays || [])
+    .map(d => Number(d))
+    .filter(n => !Number.isNaN(n));
+  if (!days.length) return null;
+
+  const due = new Date(dueIso);
+  const hours = due.getHours();
+  const minutes = due.getMinutes();
+
+  let next = new Date(dueIso);
+  for (let i = 0; i < 14; i++) {
+    next = new Date(next);
+    next.setDate(next.getDate() + 1);
+    next.setHours(hours, minutes, 0, 0);
+    if (next.getTime() > Date.now() && days.includes(next.getDay())) return next;
+  }
+  return null;
+}
+
+// ── Re-alert on dismiss ───────────────────────────────────────────────────────
+// After user clicks "Got it", reschedule alert if the task is still not done.
+// Intervals: High → 5 min | Normal → 2 h | Low → 6 h
+function setupRealertOnDismiss() {
+  if (!window.api?.onAlertDismissed) return;
+  window.api.onAlertDismissed(({ id, title, assignee_name, priority }) => {
+    if (!id) return;
+    clearTimeout(pendingReschedules.get(id));
+    const ms = 10 * 60 * 1000; // always 10 min — task is already overdue
+    const tid = setTimeout(async () => {
+      pendingReschedules.delete(id);
+      if (!currentUser) return;
+      const { data } = await sb
+        .from('reminder_assignments')
+        .select('is_done')
+        .eq('reminder_id', id)
+        .eq('user_id', currentUser.id)
+        .single();
+      if (data && !data.is_done) {
+        window.api.showAlert({ id, title, assignee_name, priority });
+      }
+    }, ms);
+    pendingReschedules.set(id, tid);
+  });
+}
+
+function tickClock() {
+  const t = fmt24(new Date());
+  document.querySelectorAll('.clock-badge').forEach(el => el.textContent = t);
+}
+
+function startClock() {
+  if (clockInterval) clearInterval(clockInterval); // clear nếu gọi lại lần 2+
+  tickClock(); // hiển thị ngay, không chờ 1 giây
+  clockInterval = setInterval(() => {
+    const now = Date.now();
+    tickClock();
+
+    void (async () => {
+      let shouldRerender = false;
+      for (const r of reminders) {
+        const dueAtMs = new Date(r.due_at).getTime();
+        if (!Number.isFinite(dueAtMs) || dueAtMs > now) continue;
+
+        const key = `${r.id}:${dueAtMs}`;
+        if (firedKeys.has(key)) continue;
+
+        const mine = r.reminder_assignments?.find(a => a.user_id === currentUser.id);
+        const shouldAlert = !!mine && !mine.is_done;
+
+        firedKeys.add(key);
+        if (shouldAlert) window.api.showAlert({ id: r.id, title: r.title, assignee_name: myMember()?.display_name || 'You', priority: r.priority || 'normal' });
+
+        // Creator pushes the reminder to the next weekday occurrence (reset done for everyone)
+        const repeatWeekdays = r.repeat_weekdays || null;
+        if (r.created_by === currentUser.id && repeatWeekdays && repeatWeekdays.length) {
+          const nextDue = getNextWeeklyDueAt(r.due_at, repeatWeekdays);
+          if (nextDue) {
+            await sb.from('reminders').update({ due_at: nextDue.toISOString(), is_done: false }).eq('id', r.id);
+            await sb.from('reminder_assignments').update({ is_done: false, done_at: null }).eq('reminder_id', r.id);
+
+            // Update local cache immediately so UI stays consistent.
+            r.due_at = nextDue.toISOString();
+            r.is_done = false;
+            shouldRerender = true;
+            if (Array.isArray(r.reminder_assignments)) {
+              r.reminder_assignments.forEach(a => {
+                a.is_done = false;
+                a.done_at = null;
+              });
+            }
+          }
+        }
+      }
+
+      if (shouldRerender && document.getElementById('page-home')?.classList.contains('active')) {
+        renderHome();
+      }
+    })();
+
+    // Re-render home every minute so overdue/upcoming sections stay accurate
+    const nowMin = Math.floor(Date.now() / 60000);
+    if (nowMin !== startClock._lastMin && document.getElementById('page-home')?.classList.contains('active')) {
+      startClock._lastMin = nowMin;
+      renderHome();
+    }
+  }, 1000);
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+window.goto = function(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${page}`)?.classList.add('active');
+  const navId = { workspace:'nb-ws', teamspace:'nb-ts', account:'nb-account' }[page] || `nb-${page}`;
+  document.getElementById(navId)?.classList.add('active');
+  const renders = { home:'renderHome', new:'renderForm', teamspace:'renderTs', notif:'renderNotif', workspace:'renderWsSettings', account:'renderAccount' };
+  if (renders[page]) window[renders[page]]();
+  if (page === 'notif') markAllRead();
+};
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+window.toggleHighFilter = function() {
+  filterHighOnly = !filterHighOnly;
+  renderHome();
+};
+
+window.switchHomeTab = function(tab, el) {
+  homeTab = tab; subTab = 'pending'; filterHighOnly = false;
+  document.querySelectorAll('#home-tabs .tab-btn').forEach(b => b.classList.remove('active')); el.classList.add('active');
+  const sub = document.getElementById('home-subtabs');
+  if (tab === 'byMe') { sub.style.display='flex'; document.getElementById('st-pending').classList.add('active'); document.getElementById('st-done').classList.remove('active'); }
+  else sub.style.display = 'none';
+  renderHome();
+};
+
+window.switchSubTab = function(tab, el) {
+  subTab = tab;
+  document.querySelectorAll('#home-subtabs .subtab-btn').forEach(b => b.classList.remove('active')); el.classList.add('active');
+  renderHome();
+};
+
+window.renderHome = function() {
+  const body = document.getElementById('home-body');
+  if (!body) return;
+  if (homeTab === 'mine') {
+    // "Assigned to me": tất cả reminder mà mình là assignee (kể cả do chính mình tạo)
+    const mine = reminders.filter(r => r.reminder_assignments.some(a => a.user_id === currentUser.id));
+    if (!mine.length) { body.innerHTML = `<div class="empty-state">${t('empty_mine')}</div>`; return; }
+
+    const now      = Date.now();
+    const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+    const isDoneFor = r => !!r.reminder_assignments.find(a => a.user_id === currentUser.id)?.is_done;
+    const prioOrder = { high: 0, normal: 1, low: 2 };
+    const sortPrio = arr => [...arr].sort((a,b) => (prioOrder[a.priority]??1) - (prioOrder[b.priority]??1));
+
+    const pending  = mine.filter(r => !isDoneFor(r));
+    const done     = mine.filter(r =>  isDoneFor(r));
+    const overdue  = sortPrio(pending.filter(r => new Date(r.due_at).getTime() < now));
+    const dueToday = sortPrio(pending.filter(r => { const t = new Date(r.due_at).getTime(); return t >= now && t <= todayEnd.getTime(); }));
+    const upcoming = sortPrio(pending.filter(r => new Date(r.due_at).getTime() > todayEnd.getTime()));
+
+    const highCount = pending.filter(r => r.priority === 'high').length;
+    // Apply high-only filter if active
+    const applyFilter = arr => filterHighOnly ? arr.filter(r => r.priority === 'high') : arr;
+    const fOverdue  = applyFilter(overdue);
+    const fToday    = applyFilter(dueToday);
+    const fUpcoming = applyFilter(upcoming);
+    const fDone     = applyFilter(done);
+
+    let html = '';
+    // Summary chips
+    if (overdue.length || dueToday.length || highCount) {
+      html += '<div class="home-summary">';
+      if (overdue.length)  html += `<span class="summary-chip overdue">⚠ ${overdue.length} ${t('chip_overdue')}</span>`;
+      if (dueToday.length) html += `<span class="summary-chip today">📅 ${dueToday.length} ${t('chip_today')}</span>`;
+      if (highCount)       html += `<span class="summary-chip high-prio ${filterHighOnly?'active':''}" onclick="toggleHighFilter()">🔴 ${highCount} ${t('chip_high')}</span>`;
+      html += '</div>';
+    }
+    const anyPending = fOverdue.length || fToday.length || fUpcoming.length;
+    if (!anyPending && !fDone.length) {
+      html += `<div class="empty-state">${t('empty_tasks')}</div>`;
+    } else {
+      if (fOverdue.length)  { html += `<div class="sec-label danger">${t('sec_overdue')} — ${fOverdue.length}</div>`; html += fOverdue.map(myTaskCard).join(''); }
+      if (fToday.length)    { html += `<div class="sec-label"${fOverdue.length?' style="margin-top:14px"':''}>${t('sec_today')} — ${fToday.length}</div>`; html += fToday.map(myTaskCard).join(''); }
+      if (fUpcoming.length) { html += `<div class="sec-label"${(fOverdue.length||fToday.length)?' style="margin-top:14px"':''}>${t('sec_upcoming')} — ${fUpcoming.length}</div>`; html += fUpcoming.map(myTaskCard).join(''); }
+      if (fDone.length)     { html += `<div class="sec-label" style="margin-top:14px">${t('sec_done')} — ${fDone.length}</div>`; html += fDone.map(myTaskCard).join(''); }
+    }
+    body.innerHTML = html;
+  } else {
+    // "Assigned by me": kanban 3 cột theo priority
+    const byMe = reminders.filter(r =>
+      r.created_by === currentUser.id &&
+      r.reminder_assignments.some(a => a.user_id !== currentUser.id)
+    );
+    const allDone = r => r.reminder_assignments.length > 0 && r.reminder_assignments.every(a => a.is_done);
+    const filtered = subTab === 'pending'
+      ? byMe.filter(r => !r.is_done && !allDone(r))
+      : byMe.filter(r =>  r.is_done ||  allDone(r));
+    const isDone = subTab === 'done';
+
+    if (!filtered.length) {
+      body.innerHTML = `<div class="empty-state">${isDone ? t('empty_byme_done') : t('empty_byme_pending')}</div>`;
+    } else {
+      const cols = { urgent: [], high: [], normal: [], low: [] };
+      filtered.forEach(r => { const p = r.priority || 'normal'; if (cols[p]) cols[p].push(r); else cols.normal.push(r); });
+      const colDef = [
+        { key:'urgent', label:'Urgent', },
+        { key:'high',   label:'High',   },
+        { key:'normal', label:'Normal', },
+      ];
+      body.innerHTML = `<div class="kanban-board">${colDef.map(col => `
+        <div class="kanban-col">
+          <div class="kanban-col-hd ${col.key}">
+            <span>${col.label}</span>
+            <span class="kanban-count">${cols[col.key].length}</span>
+          </div>
+          ${cols[col.key].length ? cols[col.key].map(r => acCard(r, isDone)).join('') : `<div class="kanban-empty">${t('kanban_empty')}</div>`}
+        </div>`).join('')}
+      </div>`;
+    }
+  }
+};
+
+function myTaskCard(r) {
+  const asgn  = r.reminder_assignments.find(a => a.user_id === currentUser.id);
+  const isDone = asgn?.is_done;
+  const ts    = teamspaces.find(t => t.id === r.teamspace_id);
+  const ti    = ts ? teamspaces.indexOf(ts) : 0;
+  const tclr  = tc(ti);
+  const creator = memberById(r.created_by);
+  const checkSvg = isDone ? `<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><polyline points="1,3.5 3.5,6 8,1" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+  const canEdit = r.created_by === currentUser.id;
+  const prioBadge = r.priority === 'high'   ? '<span class="prio-badge high">High</span>'
+                  : r.priority === 'urgent' ? '<span class="prio-badge urgent">Urgent</span>'
+                  : '';
+  return `<div class="my-card prio-${r.priority||'normal'} ${isDone?'done':''}">
+    <div class="check-circle ${isDone?'checked':''}" onclick="toggleDone('${r.id}', ${isDone})">${checkSvg}</div>
+    <div style="flex:1;min-width:0">
+      <div class="my-title">${esc(r.title)}</div>
+      <div class="my-meta">
+        ${prioBadge}
+        ${creator ? `<span class="from-label">từ ${esc(creator.display_name.split(' ')[0])}</span>` : ''}
+        ${ts ? `<span class="tag" style="background:${tclr.bg};color:${tclr.dot}">${ts.icon} ${esc(ts.name)}</span>` : ''}
+      </div>
+      <div style="margin-top:5px">${dlChip(r.due_at, isDone)}</div>
+    </div>
+    ${canEdit ? `<div style="display:flex;gap:2px;flex-shrink:0">
+      <button class="btn-icon edit" onclick="event.stopPropagation();editReminder('${r.id}')" title="Edit">✎</button>
+      <button class="btn-icon del" onclick="event.stopPropagation();deleteReminder('${r.id}')" title="Delete">✕</button>
+    </div>` : ''}
+  </div>`;
+}
+
+window.toggleDone = async function(remId, wasDone) {
+  const isDone = !wasDone;
+  await sb.from('reminder_assignments')
+    .update({ is_done: isDone, done_at: isDone ? new Date().toISOString() : null })
+    .eq('reminder_id', remId).eq('user_id', currentUser.id);
+  // Cancel any pending re-alert for this reminder when marked done
+  if (isDone) {
+    clearTimeout(pendingReschedules.get(remId));
+    pendingReschedules.delete(remId);
+  }
+  await loadReminders();
+
+  // If marking done, check if ALL assignments done → notify creator
+  if (isDone) {
+    const r = reminders.find(r => r.id === remId);
+    if (r && r.created_by !== currentUser.id) {
+      const allDone = r.reminder_assignments.length > 0 && r.reminder_assignments.every(a => a.is_done);
+      if (allDone) {
+        await sb.from('notifications').insert({
+          workspace_id: currentWs.id,
+          user_id: r.created_by,
+          type: 'task_all_done',
+          icon: '✅',
+          title: r.title,
+          reminder_id: remId,
+        });
+      }
+    }
+  }
+  renderHome();
+};
+
+function acCard(r, isDoneSection) {
+  const total     = r.reminder_assignments.length;
+  const doneCount = r.reminder_assignments.filter(a=>a.is_done).length;
+  const pct       = total ? Math.round(doneCount/total*100) : 0;
+  const allDone   = doneCount === total && total > 0 || r.is_done;
+  const ts   = teamspaces.find(t => t.id === r.teamspace_id);
+  const ti   = ts ? teamspaces.indexOf(ts) : 0;
+  const tclr = tc(ti);
+  const mems = r.reminder_assignments.map(a => {
+    const m = memberById(a.user_id); if (!m) return '';
+    const cl = mc(m.display_name);
+    return `<div class="mem-row ${a.is_done?'done':'pending'}">
+      <div class="mem-left">
+        <div class="avatar" style="background:${cl.bg};color:${cl.fg}">${m.display_name[0]}</div>
+        <span class="mem-name">${esc(m.display_name.split(' ')[0])}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="mem-status ${a.is_done?'done':'pending'}">${a.is_done?'Done':'Pending'}</span>
+        ${!a.is_done && !isDoneSection ? `<button class="btn-reremind" onclick="reRemind('${r.id}','${a.user_id}')">Re-remind</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  const acPrioBadge = r.priority === 'high'   ? '<span class="prio-badge high">High</span>'
+                    : r.priority === 'urgent' ? '<span class="prio-badge urgent">Urgent</span>'
+                    : '';
+  return `<div class="ac-card prio-${r.priority||'normal'} ${isDoneSection?'done':''}">
+    <div class="ac-head" onclick="togAcPanel('${r.id}')">
+      <div class="ac-meta">
+        ${ts ? `<span class="tag" style="background:${tclr.bg};color:${tclr.dot}">${ts.icon} ${esc(ts.name)}</span>` : ''}
+        ${acPrioBadge}
+        ${dlChip(r.due_at, isDoneSection)}
+      </div>
+      <div class="ac-top">
+        <div class="ac-title">${esc(r.title)}</div>
+        <div class="ac-actions">
+          ${!isDoneSection ? `<button class="btn-done-sm" onclick="event.stopPropagation();markAllDone('${r.id}')">Done</button>` : ''}
+          <button class="btn-icon edit" onclick="event.stopPropagation();editReminder('${r.id}')" title="Edit">✎</button>
+          <button class="btn-icon del" onclick="event.stopPropagation();deleteReminder('${r.id}')" title="Delete">✕</button>
+          <span class="ac-chevron" id="chev-${r.id}">▼</span>
+        </div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${allDone?'#9AAB63':'#F5D867'}"></div></div>
+        <span class="prog-lbl" style="color:${allDone?'#3B6D11':'#854F0B'}">${doneCount}/${total} done</span>
+      </div>
+    </div>
+    <div class="ac-panel" id="acp-${r.id}">${mems}</div>
+  </div>`;
+}
+
+window.togAcPanel = function(id) {
+  document.getElementById(`acp-${id}`)?.classList.toggle('open');
+  document.getElementById(`chev-${id}`)?.classList.toggle('open');
+};
+
+window.markAllDone = async function(id) {
+  await sb.from('reminders').update({ is_done: true }).eq('id', id);
+  await sb.from('reminder_assignments').update({ is_done: true, done_at: new Date().toISOString() }).eq('reminder_id', id);
+  await loadReminders(); renderHome(); toast('Task marked done! ✓');
+};
+
+window.reRemind = async function(remId, userId) {
+  const r = reminders.find(r => r.id === remId);
+  const m = memberById(userId);
+  if (!r || !m) return;
+  await sb.from('notifications').insert({ workspace_id: currentWs.id, user_id: userId, type: 'reremind', icon: '🔔', title: `Nhắc lại: ${r.title}`, reminder_id: remId });
+  toast(`Re-reminder gửi cho ${m.display_name.split(' ')[0]}! 🔔`);
+};
+
+// ── NEW REMINDER ──────────────────────────────────────────────────────────────
+window.renderForm = function() {
+  const list = document.getElementById('f-ts-list');
+  if (!list) return;
+  const visibleTeamspaces = teamspaces.filter(ts =>
+    tsMems(ts).some(m => m.user_id === currentUser.id)
+  );
+
+  if (selTsId && !visibleTeamspaces.some(ts => ts.id === selTsId)) {
+    selTsId = null;
+    extraAssignees = [];
+  }
+
+  list.innerHTML = visibleTeamspaces.length
+    ? visibleTeamspaces.map((ts, i) => {
+        const c = tc(i), on = selTsId === ts.id;
+        return `<div class="ts-select-row ${on?'selected':''}" onclick="pickTs('${ts.id}')">
+          <div class="ts-select-left">
+            <div class="ts-icon-sm" style="background:${c.bg}">${ts.icon}</div>
+            <div>
+              <div class="ts-sel-name">${esc(ts.name)}</div>
+              <div class="ts-sel-sub">${tsMems(ts).length} members</div>
+            </div>
+          </div>
+          <div class="check-sm"><span class="check-tick">✓</span></div>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:12px;color:#B4B2A9;padding:8px 0">Bạn chưa có teamspace nào.</div>';
+
+  const inTs = selTsId ? tsMems(visibleTeamspaces.find(t=>t.id===selTsId)).map(m=>m.user_id) : [];
+  const avail = wsMembers.filter(m => m.user_id !== currentUser.id && !inTs.includes(m.user_id));
+  document.getElementById('f-extra-chips').innerHTML = avail.map(m => {
+    const c = mc(m.display_name), on = extraAssignees.includes(m.user_id);
+    return `<div class="chip ${on?'selected':''}" style="background:${c.bg};color:${c.fg}" onclick="togExtra('${m.user_id}')">${esc(m.display_name.split(' ')[0])}</div>`;
+  }).join('');
+};
+
+window.pickTs   = id  => { selTsId = selTsId === id ? null : id; extraAssignees = []; renderForm(); };
+window.togExtra = uid => { const i = extraAssignees.indexOf(uid); i===-1 ? extraAssignees.push(uid) : extraAssignees.splice(i,1); renderForm(); };
+
+window.setAssignMode = function(mode) {
+  assignMode = mode;
+  document.getElementById('mode-me')?.classList.toggle('active', mode === 'me');
+  document.getElementById('mode-teamspace')?.classList.toggle('active', mode === 'teamspace');
+  const tsSection = document.getElementById('f-ts-section');
+  if (tsSection) tsSection.style.display = mode === 'teamspace' ? '' : 'none';
+  if (mode === 'me') { selTsId = null; extraAssignees = []; }
+  renderForm();
+};
+
+window.createReminder = async function() {
+  const title = document.getElementById('f-title').value.trim();
+  const tv    = document.getElementById('f-time').value;
+  if (!title) return toast('Nhập title đi!');
+  if (!tv)    return toast('Chọn ngày giờ đi!');
+
+  const repeatWeekly = !!document.getElementById('f-repeat-weekly')?.checked;
+  const repeatWeekdays = repeatWeekly ? getSelectedWeekdayIdxs() : [];
+  if (repeatWeekly) {
+    if (!repeatWeekdays.length) return toast('Chọn ít nhất 1 ngày lặp.');
+    const dueDow = new Date(tv).getDay(); // 0..6 (Sun..Sat)
+    if (!repeatWeekdays.includes(dueDow)) return toast('Ngày bạn chọn phải nằm trong các ngày lặp.');
+  }
+
+  const ts = assignMode === 'teamspace' ? teamspaces.find(t => t.id === selTsId) : null;
+  const tsUids = tsMems(ts).map(m => m.user_id);
+  const assignees = assignMode === 'me'
+    ? [currentUser.id]
+    : [...new Set([...tsUids, ...extraAssignees])];
+  try {
+    const { data: rem, error: remErr } = await sb.from('reminders').insert({
+      workspace_id: currentWs.id, teamspace_id: assignMode === 'teamspace' ? (selTsId || null) : null,
+      title, description: document.getElementById('f-desc').value.trim(),
+      due_at: new Date(tv).toISOString(), priority: document.getElementById('f-priority').value,
+      repeat_weekdays: repeatWeekly ? repeatWeekdays : null,
+      created_by: currentUser.id,
+    }).select().single();
+    if (remErr || !rem) throw new Error(remErr?.message || 'Không tạo được reminder');
+    if (assignees.length) {
+      await sb.from('reminder_assignments').insert(assignees.map(uid => ({ reminder_id: rem.id, user_id: uid })));
+      const myName = myMember()?.display_name || 'Someone';
+      const notifRecipients = assignees.filter(uid => uid !== currentUser.id);
+      if (notifRecipients.length) {
+        await sb.from('notifications').insert(notifRecipients.map(uid => ({
+          workspace_id: currentWs.id, user_id: uid,
+          type: 'assigned', icon: '📋',
+          title: `${myName} assigned you: "${title}"`,
+          reminder_id: rem.id,
+        })));
+      }
+    }
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-desc').value  = '';
+    document.getElementById('f-repeat-weekly').checked = false;
+    clearWeekdaySelection();
+    selTsId = null; extraAssignees = []; assignMode = 'teamspace'; renderForm();
+    setAssignMode('teamspace');
+    toast('Reminder đã tạo! ✓');
+    await loadReminders(); goto('home');
+  } catch(e) { toast('Lỗi: ' + e.message); }
+};
+
+// Set default time (+5 min)
+const def = new Date(Date.now() + 5*60000); def.setSeconds(0,0);
+document.getElementById('f-time').value = def.toISOString().slice(0,16);
+
+// ── Repeat weekly (UI state helpers) ───────────────────────────────────────
+const WEEKDAYS_UI = [
+  { idx: 1, label: 'T2' },
+  { idx: 2, label: 'T3' },
+  { idx: 3, label: 'T4' },
+  { idx: 4, label: 'T5' },
+  { idx: 5, label: 'T6' },
+  { idx: 6, label: 'T7' },
+  { idx: 0, label: 'CN' },
+];
+
+window.toggleWeekday = function(idx) {
+  const repeatCb = document.getElementById('f-repeat-weekly');
+  if (repeatCb && !repeatCb.checked) return;
+  document.getElementById(`wd-${idx}`)?.classList.toggle('selected');
+};
+
+function initWeekdayChips() {
+  const wrap = document.getElementById('f-weekdays');
+  if (!wrap) return;
+  wrap.innerHTML = WEEKDAYS_UI.map(d => {
+    const c = tc(d.idx);
+    return `<div class="chip weekday-chip" id="wd-${d.idx}" onclick="toggleWeekday(${d.idx})" style="background:${c.bg};color:${c.dot}">${d.label}</div>`;
+  }).join('');
+}
+
+function clearWeekdaySelection() {
+  document.querySelectorAll('#f-weekdays .weekday-chip.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function getSelectedWeekdayIdxs() {
+  return [...document.querySelectorAll('#f-weekdays .weekday-chip.selected')].map(el => Number(el.id.replace('wd-',''))).filter(n => !Number.isNaN(n));
+}
+
+function tryPreselectDueWeekday() {
+  const repeatCb = document.getElementById('f-repeat-weekly');
+  if (!repeatCb?.checked) return;
+  const selected = getSelectedWeekdayIdxs();
+  if (selected.length) return;
+  const tv = document.getElementById('f-time')?.value;
+  if (!tv) return;
+  const dueDow = new Date(tv).getDay();
+  if (!Number.isNaN(dueDow)) document.getElementById(`wd-${dueDow}`)?.classList.add('selected');
+}
+
+initWeekdayChips();
+const repeatCb = document.getElementById('f-repeat-weekly');
+if (repeatCb) {
+  repeatCb.checked = false;
+  repeatCb.addEventListener('change', () => {
+    if (repeatCb.checked) {
+      tryPreselectDueWeekday();
+    } else {
+      clearWeekdaySelection();
+    }
+  });
+}
+
+// ── TEAMSPACE ─────────────────────────────────────────────────────────────────
+window.switchTsTab = function(tab, el) {
+  tsTab = tab;
+  document.querySelectorAll('#ts-tabs .tab-btn').forEach(b => b.classList.remove('active')); el.classList.add('active');
+  renderTs();
+};
+
+window.renderTs = function() {
+  const body = document.getElementById('ts-body');
+  const myRoleInTs = ts => tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  const canEditInTs = ts => {
+    const r = myRoleInTs(ts);
+    return r === 'admin' || r === 'mod';
+  };
+  const mine   = teamspaces.filter(ts => ts.created_by === currentUser.id);
+  const joined = teamspaces.filter(ts => ts.created_by !== currentUser.id && tsMems(ts).some(m => m.user_id === currentUser.id));
+
+  if (tsTab === 'my') {
+    let html = mine.map(ts => tsCard(ts, canEditInTs(ts))).join('') || `<div style="font-size:13px;color:#B4B2A9;padding:8px 0">${t('ts_empty_my')}</div>`;
+    html += `<div class="create-box">
+      <div class="create-box-title">${t('ts_create_title')}</div>
+      <div class="create-box-sub">${t('ts_create_sub')}</div>
+      <input class="form-input" id="new-ts-name" placeholder="${t('ts_name_ph')}" style="margin-bottom:10px;background:#F5F0E8;font-weight:600">
+      <div class="form-label" style="margin-bottom:6px">${t('ts_add_members')}</div>
+      <div class="pool" id="new-ts-pool">
+        ${wsMembers.filter(m => m.user_id !== currentUser.id).map(m => {
+          const c = mc(m.display_name);
+          return `<div class="pool-chip" id="ntp-${m.user_id}" style="background:${c.bg};color:${c.fg}" onclick="togNewTs('${m.user_id}')">${esc(m.display_name.split(' ')[0])}</div>`;
+        }).join('')}
+      </div>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="createTs()">${t('btn_create_ts')}</button>
+    </div>`;
+    body.innerHTML = html;
+  } else {
+    body.innerHTML = joined.length
+      ? `<div class="joined-banner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg><div><div class="joined-title">${t('ts_joined_title')}</div><div class="joined-sub">${t('ts_joined_sub')}</div></div></div>` + joined.map(ts => tsCard(ts, canEditInTs(ts))).join('')
+      : `<div class="empty-state">${t('ts_empty_joined')}</div>`;
+  }
+};
+
+function tsCard(ts, canEdit) {
+  const c = tc(teamspaces.indexOf(ts));
+  const myRole = tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  const canManage = myRole === 'admin' || myRole === 'mod';
+  const displayMembers = tsMems(ts);
+  const members = displayMembers.map(m => {
+    const wm = memberById(m.user_id); if (!wm) return '';
+    const cl = mc(wm.display_name);
+    const role = m.role || 'member';
+    const canRemove = canManage && (myRole === 'admin' || (myRole === 'mod' && role !== 'admin'));
+    const roleSelect = myRole === 'admin'
+      ? `<select class="form-input" style="width:auto;min-width:110px;padding:6px 8px;border-radius:10px;margin-left:8px" onchange="changeTsRole('${ts.id}','${m.user_id}', this.value)">${['admin','mod','member'].map(rr => `<option value="${rr}" ${role===rr?'selected':''}>${rr}</option>`).join('')}</select>`
+      : '';
+    const removeBtn = canRemove
+      ? `<button class="btn-remove" onclick="removeTsMem('${ts.id}','${m.user_id}')">✕</button>`
+      : '';
+    return `<div class="member-item">
+      <div class="member-left">
+        <div class="avatar" style="background:${cl.bg};color:${cl.fg}">${wm.display_name[0]}</div>
+        <span class="member-name">${esc(wm.display_name.split(' ')[0])}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="role-badge ${role==='admin'?'admin':role==='mod'?'mod':''}">${role}</span>
+        ${roleSelect}
+        ${removeBtn}
+      </div>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:#B4B2A9">Chưa có members.</div>';
+  const addableMembers = canManage && canEdit
+    ? wsMembers.filter(m => m.user_id !== currentUser.id && !displayMembers.some(tm => tm.user_id === m.user_id))
+    : [];
+  const poolHtml = addableMembers.length
+    ? addableMembers.map(m => {
+        const cl = mc(m.display_name);
+        return `<div class="pool-chip" id="ptm-${ts.id}-${m.user_id}" style="background:${cl.bg};color:${cl.fg}" onclick="togPendingMem('${ts.id}','${m.user_id}')">${esc(m.display_name.split(' ')[0])}</div>`;
+      }).join('')
+    : `<span style="font-size:12px;color:#B4B2A9">${t('ts_all_added')}</span>`;
+  return `<div class="tsi-card">
+    <div class="tsi-head" onclick="togTsiPanel('${ts.id}')">
+      <div class="tsi-left">
+        <div class="tsi-icon" style="background:${c.bg}">${ts.icon}</div>
+        <div>
+          <div class="tsi-name">${esc(ts.name)}</div>
+          <div class="tsi-meta">${tsMems(ts).length} members${canManage?'':' · by '+esc((memberById(ts.created_by)?.display_name||'?').split(' ')[0])}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="tsi-chevron" id="tschev-${ts.id}">▼</span>
+        ${myRole === 'admin' ? `<button class="btn-remove" onclick="event.stopPropagation();deleteTeamspace('${ts.id}')">🗑</button>` : ''}
+      </div>
+    </div>
+    <div class="tsi-panel" id="tspanel-${ts.id}">
+      <div class="tsi-sublabel">${t('ts_members_lbl')}</div>
+      <div class="member-list">${members}</div>
+      ${canManage && canEdit ? `
+        <div class="tsi-sublabel" style="margin-top:14px">${t('ts_add_from_ws')}</div>
+        <div class="pool" style="margin-bottom:10px">${poolHtml}</div>
+        ${addableMembers.length ? `<button class="btn btn-primary" id="save-ts-mems-${ts.id}" style="font-size:13px;padding:8px 18px" onclick="saveNewTsMems('${ts.id}')">${t('btn_add_members')}</button>` : ''}
+      ` : ''}
+    </div>
+  </div>`;
+}
+
+window.togTsiPanel = id => { document.getElementById(`tspanel-${id}`)?.classList.toggle('open'); document.getElementById(`tschev-${id}`)?.classList.toggle('open'); };
+
+// Re-render teamspace page, keeping specified panel open (and any already-open panels)
+function renderTsKeepOpen(forceOpenId) {
+  const openIds = new Set(
+    Array.from(document.querySelectorAll('.tsi-panel.open'))
+      .map(el => el.id.replace('tspanel-', ''))
+  );
+  if (forceOpenId) openIds.add(forceOpenId);
+  renderTs();
+  openIds.forEach(id => {
+    document.getElementById(`tspanel-${id}`)?.classList.add('open');
+    document.getElementById(`tschev-${id}`)?.classList.add('open');
+  });
+}
+
+// ── Staging: add members to existing teamspace ────────────────────────────────
+const _pendingTsMems = {}; // tsId → Set of uids staged to add
+
+window.togPendingMem = function(tsId, uid) {
+  if (!_pendingTsMems[tsId]) _pendingTsMems[tsId] = new Set();
+  const s = _pendingTsMems[tsId];
+  s.has(uid) ? s.delete(uid) : s.add(uid);
+  document.getElementById(`ptm-${tsId}-${uid}`)?.classList.toggle('in-group', s.has(uid));
+  const btn = document.getElementById(`save-ts-mems-${tsId}`);
+  if (btn) btn.textContent = s.size > 0 ? `Thêm ${s.size} member` : 'Thêm members';
+};
+
+window.saveNewTsMems = async function(tsId) {
+  const uids = _pendingTsMems[tsId] ? [..._pendingTsMems[tsId]] : [];
+  if (!uids.length) return toast(t('toast_select_member'));
+  const ts = teamspaces.find(t => t.id === tsId);
+  try {
+    const { error: memErr } = await sb.from('teamspace_members')
+      .insert(uids.map(uid => ({ teamspace_id: tsId, user_id: uid, role: 'member' })));
+    if (memErr) throw memErr;
+
+    // Add to reminder_assignments for all active reminders of this teamspace
+    const tsReminderIds = reminders.filter(r => r.teamspace_id === tsId && !r.is_done).map(r => r.id);
+    if (tsReminderIds.length) {
+      const rows = uids.flatMap(uid => tsReminderIds.map(rid => ({ reminder_id: rid, user_id: uid })));
+      await sb.from('reminder_assignments').upsert(rows, { onConflict: 'reminder_id,user_id', ignoreDuplicates: true });
+    }
+
+    // Notify each added user
+    const tsName = ts?.name || 'teamspace';
+    await sb.from('notifications').insert(uids.map(uid => ({
+      workspace_id: currentWs.id,
+      user_id: uid,
+      type: 'teamspace_invited',
+      icon: '➕',
+      title: `Bạn được mời vào teamspace: "${tsName}"`,
+    })));
+
+    delete _pendingTsMems[tsId];
+    await loadReminders();
+    await loadTeamspaces();
+    renderTsKeepOpen(tsId);
+    toast(`Đã thêm ${uids.length} member vào "${tsName}" ✓`);
+  } catch(e) {
+    toast('Lỗi thêm member: ' + (e?.message || String(e)));
+  }
+};
+
+const newTsMembers = [];
+window.togNewTs = uid => {
+  const i = newTsMembers.indexOf(uid);
+  i===-1 ? newTsMembers.push(uid) : newTsMembers.splice(i,1);
+  document.getElementById(`ntp-${uid}`)?.classList.toggle('in-group', newTsMembers.includes(uid));
+};
+
+window.changeTsRole = async function(tsId, userId, role) {
+  role = String(role || 'member');
+  if (!['admin', 'mod', 'member'].includes(role)) return;
+
+  const ts = teamspaces.find(t => t.id === tsId);
+  const myRole = tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  if (myRole !== 'admin') return toast('Chỉ admin mới được đổi role.');
+
+  try {
+    await sb.from('teamspace_members')
+      .update({ role })
+      .eq('teamspace_id', tsId)
+      .eq('user_id', userId);
+    await loadTeamspaces();
+    renderTsKeepOpen(tsId);
+  } catch (e) {
+    toast('Không đổi được role: ' + (e?.message || String(e)));
+  }
+};
+
+window.createTs = async function() {
+  const name = document.getElementById('new-ts-name').value.trim();
+  const icon = '👥';
+  if (!name) return toast('Nhập tên đi!');
+  try {
+    const { data: ts, error: tsErr } = await sb.from('teamspaces')
+      .insert({ workspace_id: currentWs.id, name, icon, created_by: currentUser.id })
+      .select().single();
+    if (tsErr || !ts) return toast('Lỗi tạo teamspace: ' + (tsErr?.message || 'unknown'));
+
+    // Insert creator trước, sau đó mới insert các member khác
+    const { error: adminErr } = await sb.from('teamspace_members')
+      .insert({ teamspace_id: ts.id, user_id: currentUser.id, role: 'admin' });
+    if (adminErr) console.warn('Không insert được creator vào teamspace_members:', adminErr.message);
+
+    if (newTsMembers.length) {
+      await sb.from('teamspace_members')
+        .insert(newTsMembers.map(uid => ({ teamspace_id: ts.id, user_id: uid, role: 'member' })));
+    }
+
+    newTsMembers.length = 0;
+    await loadTeamspaces(); renderTs(); toast('Teamspace đã tạo! ✓');
+  } catch(e) { toast('Lỗi: ' + e.message); }
+};
+
+window.togTsMem = async (tsId, userId) => {
+  const ts = teamspaces.find(t => t.id === tsId);
+  const meRole = tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  const target = tsMems(ts).find(m => m.user_id === userId);
+  // inG: đã thực sự có trong DB (dùng ts.teamspace_members gốc, không phải tsMems)
+  const inG = (ts?.teamspace_members || []).some(m => m.user_id === userId);
+  const targetRole = target?.role || 'member';
+  try {
+    if (inG) {
+      if (meRole === 'mod' && targetRole === 'admin') {
+        toast('Mod khong the xoa admin trong teamspace.');
+        return;
+      }
+      await sb.from('teamspace_members')
+        .delete()
+        .eq('teamspace_id', tsId)
+        .eq('user_id', userId);
+    } else {
+      await sb.from('teamspace_members').insert({ teamspace_id: tsId, user_id: userId, role: 'member' });
+
+      // Add member vào các reminder đang active của teamspace
+      const tsReminderIds = reminders
+        .filter(r => r.teamspace_id === tsId && !r.is_done)
+        .map(r => r.id);
+      if (tsReminderIds.length) {
+        await sb.from('reminder_assignments')
+          .upsert(tsReminderIds.map(rid => ({ reminder_id: rid, user_id: userId })), { onConflict: 'reminder_id,user_id', ignoreDuplicates: true });
+      }
+
+      // Notify invited user
+      const tsName = ts?.name || 'teamspace';
+      await sb.from('notifications').insert({
+        workspace_id: currentWs.id,
+        user_id: userId,
+        type: 'teamspace_invited',
+        icon: '➕',
+        title: `Bạn được mời vào teamspace: "${tsName}"`,
+      });
+    }
+    await loadReminders();
+    await loadTeamspaces();
+    renderTsKeepOpen(tsId);
+  } catch (e) {
+    toast('Không cập nhật teamspace được: ' + (e?.message || String(e)));
+  }
+};
+
+window.removeTsMem = async (tsId, uid) => {
+  const ts = teamspaces.find(t => t.id === tsId);
+  const meRole = tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  const targetRole = tsMems(ts).find(m => m.user_id === uid)?.role || 'member';
+  if (meRole === 'mod' && targetRole === 'admin') {
+    toast('Mod khong the xoa admin trong teamspace.');
+    return;
+  }
+  try {
+    const { error: delErr } = await sb.from('teamspace_members').delete().eq('teamspace_id', tsId).eq('user_id', uid);
+    if (delErr) throw delErr;
+
+    // Xóa reminder_assignments của member này cho tất cả reminder thuộc teamspace đó
+    const tsReminderIds = reminders
+      .filter(r => r.teamspace_id === tsId)
+      .map(r => r.id);
+    if (tsReminderIds.length) {
+      const { error: asgErr } = await sb.from('reminder_assignments')
+        .delete()
+        .in('reminder_id', tsReminderIds)
+        .eq('user_id', uid);
+      if (asgErr) throw asgErr;
+    }
+
+    await loadReminders();
+    await loadTeamspaces();
+    renderTsKeepOpen(tsId);
+  } catch (e) {
+    toast('Không xóa được member: ' + (e?.message || String(e)));
+  }
+};
+
+window.deleteTeamspace = async function(tsId) {
+  const ts = teamspaces.find(t => t.id === tsId);
+  const myRole = tsMems(ts).find(m => m.user_id === currentUser.id)?.role || 'member';
+  if (myRole !== 'admin') return toast('Chỉ admin mới được xóa teamspace.');
+
+  await sb.from('teamspaces').delete().eq('id', tsId);
+  await loadTeamspaces();
+  renderTs();
+  toast('Teamspace đã xóa ✓');
+};
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+function updateBadge() {
+  const unread = notifications.filter(n => !n.is_read).length;
+  document.getElementById('notif-badge').style.display = unread ? 'block' : 'none';
+  document.getElementById('notif-sub').textContent = unread ? `${unread} ${t('notif_unread_fmt')}` : t('notif_all_read');
+}
+
+window.renderNotif = function() {
+  const body = document.getElementById('notif-body');
+  if (!notifications.length) { body.innerHTML = `<div class="empty-state">${t('empty_notif')}</div>`; return; }
+
+  // Group: same type + reminder_id → merge into one item with count
+  const grouped = [];
+  const keyMap = new Map(); // key → index in grouped
+  for (const n of notifications) {
+    const key = n.reminder_id ? `${n.type}:${n.reminder_id}` : null;
+    if (key && keyMap.has(key)) {
+      const g = grouped[keyMap.get(key)];
+      g.count++;
+      if (!n.is_read) g.hasUnread = true;
+    } else {
+      const g = { ...n, count: 1, hasUnread: !n.is_read };
+      if (key) keyMap.set(key, grouped.length);
+      grouped.push(g);
+    }
+  }
+
+  body.innerHTML = grouped.map(n => `
+    <div class="notif-item ${n.hasUnread?'':'read'}">
+      <div class="notif-icon-wrap">${n.icon}</div>
+      <div style="flex:1">
+        <div class="notif-title">${esc(n.title)}${n.count > 1 ? `<span class="notif-count-badge">${n.count}</span>` : ''}</div>
+        <div class="notif-time">${ago(n.created_at)}</div>
+      </div>
+      ${n.hasUnread ? '<div class="notif-dot"></div>' : ''}
+    </div>`).join('');
+};
+
+window.markAllRead = async function() {
+  await sb.from('notifications').update({ is_read: true }).eq('workspace_id', currentWs.id).eq('user_id', currentUser.id).eq('is_read', false);
+  notifications.forEach(n => n.is_read = true);
+  updateBadge(); renderNotif();
+};
+
+// ── WORKSPACE SETTINGS ────────────────────────────────────────────────────────
+window.renderWsSettings = function() {
+  const body = document.getElementById('ws-body');
+  if (!body || !currentWs) return;
+
+  const myRole = wsMembers.find(m => m.user_id === currentUser.id)?.role || 'member';
+  const canManageWs = myRole === 'admin';
+
+  body.innerHTML = `
+    <div class="ws-hero">
+      <div class="ws-hero-icon" id="ws-hero-icon-display">${wsIconHtml(currentWs.icon)}</div>
+      <div>
+        <div class="ws-hero-name">${esc(currentWs.name)}</div>
+        <div class="ws-hero-meta">${wsMembers.length} ${t('ws_members_lbl')}</div>
+      </div>
+    </div>
+
+    ${canManageWs ? `
+    <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px">Workspace</div>
+    <div class="settings-card" style="padding:14px 16px;margin-bottom:12px">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div style="flex:1">
+            <div class="form-label" style="margin:0 0 4px">Tên workspace</div>
+            <input class="form-input" id="ws-edit-name" value="${esc(currentWs.name)}" style="margin:0">
+          </div>
+          <button class="copy-btn" style="flex-shrink:0;margin-bottom:1px" onclick="saveWsName()">💾 Lưu</button>
+        </div>
+        <div>
+          <div class="form-label" style="margin:0 0 6px">Icon / Avatar</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="ws-hero-icon" id="ws-icon-preview" style="flex-shrink:0;cursor:pointer;border:2px dashed #ddd" onclick="document.getElementById('ws-icon-file').click()" title="Chọn ảnh">${wsIconHtml(currentWs.icon)}</div>
+            <button class="copy-btn" onclick="document.getElementById('ws-icon-file').click()">📁 Chọn ảnh từ máy</button>
+            <button class="copy-btn" style="margin-left:auto" onclick="saveWsIcon()">💾 Lưu</button>
+          </div>
+          <input type="file" id="ws-icon-file" accept="image/*" style="display:none" onchange="handleWsIconFile(this)">
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px">${t('ws_invite_section')}</div>
+    <div class="invite-box">
+      <div class="invite-box-title">${t('ws_invite_send')}</div>
+      <div class="invite-link-display" id="invite-link-text">${esc(currentWs.invite_code)}</div>
+      <div style="display:flex;gap:8px">
+        <button class="copy-btn" onclick="copyCode()">${t('ws_copy_code')}</button>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 8px">${t('ws_members_lbl')} (${wsMembers.length})</div>
+    <div class="settings-card" style="padding:4px 16px">
+      ${wsMembers.map(m => {
+        const cl = mc(m.display_name);
+        const canRemove = canManageWs && m.role !== 'admin' && m.user_id !== currentUser.id;
+        return `<div class="member-ws-row">
+          <div class="member-ws-left">
+            <div class="avatar" style="background:${cl.bg};color:${cl.fg};width:30px;height:30px;font-size:12px">${m.display_name[0]}</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#2C2C2A">${esc(m.display_name)}</div>
+              <div style="font-size:11px;color:#888780">${esc(m.email)}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="role-badge ${m.role==='admin'?'admin':''}">${m.role}</span>
+            ${canRemove ? `<button class="btn-remove" onclick="removeWorkspaceMember('${m.user_id}')">✕</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn-danger" onclick="doSignOut()">${t('ws_signout_btn')}</button>
+    </div>`;
+
+  // Render autostart toggle async
+  if (window.api?.getAutostart) {
+    window.api.getAutostart().then(enabled => {
+      const autostartSection = document.createElement('div');
+      autostartSection.innerHTML = `
+        <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.07em;margin:16px 0 8px">${t('ws_system')}</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:#2C2C2A">${t('ws_autostart_title')}</div>
+              <div class="settings-label">${t('ws_autostart_sub')}</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="autostart-toggle" ${enabled ? 'checked' : ''} onchange="toggleAutostart(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>`;
+      body.appendChild(autostartSection);
+    });
+  }
+};
+
+window.copyCode = function() {
+  const code = currentWs.invite_code;
+  navigator.clipboard?.writeText(code).catch(()=>{});
+  toast(`${code} (${t('toast_copied')})`);
+};
+
+// Holds the chosen base64 image (if any) until Save is clicked
+let _pendingWsIcon = null;
+
+window.previewWsIcon = function(val) {
+  if (!val) return;
+  _pendingWsIcon = null; // clear any picked image when user types emoji
+  const el = document.getElementById('ws-icon-preview');
+  if (el) el.innerHTML = wsIconHtml(val);
+};
+
+window.handleWsIconFile = function(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    // Resize to max 200x200 to keep DB size small
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const TARGET = 200;
+      canvas.width = TARGET; canvas.height = TARGET;
+      const ctx = canvas.getContext('2d');
+      // Scale so the shorter side fills TARGET, then center-crop the overflow
+      const scale = TARGET / Math.min(img.width, img.height);
+      const sw = img.width * scale;
+      const sh = img.height * scale;
+      const ox = (TARGET - sw) / 2;
+      const oy = (TARGET - sh) / 2;
+      ctx.drawImage(img, ox, oy, sw, sh);
+      _pendingWsIcon = canvas.toDataURL('image/jpeg', 0.85);
+      const preview = document.getElementById('ws-icon-preview');
+      if (preview) preview.innerHTML = wsIconHtml(_pendingWsIcon);
+      // Clear emoji input
+      const iconInput = document.getElementById('ws-edit-icon');
+      if (iconInput) iconInput.value = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveWsName = async function() {
+  const name = document.getElementById('ws-edit-name')?.value.trim();
+  if (!name) return toast('Tên workspace không được để trống');
+  const { error } = await sb.from('workspaces').update({ name }).eq('id', currentWs.id);
+  if (error) return toast('Lỗi: ' + error.message);
+  currentWs.name = name;
+  document.getElementById('nav-ws-label').textContent = name.split(' ')[0];
+  document.querySelector('.ws-hero-name').textContent = name;
+  document.querySelector('.ws-hero-meta') && (document.querySelector('.ws-hero-name').textContent = name);
+  toast('Đã lưu tên!');
+};
+
+window.saveWsIcon = async function() {
+  const icon = _pendingWsIcon || currentWs.icon || '🏠';
+  const { error } = await sb.from('workspaces').update({ icon }).eq('id', currentWs.id);
+  if (error) return toast('Lỗi: ' + error.message);
+  currentWs.icon = icon;
+  _pendingWsIcon = null;
+  updateNavWsIcon();
+  document.getElementById('ws-hero-icon-display').innerHTML = wsIconHtml(icon);
+  toast('Đã lưu avatar!');
+};
+
+window.removeWorkspaceMember = async function(userId) {
+  try {
+    // 1) Xóa khỏi workspace
+    await sb.from('workspace_members')
+      .delete()
+      .eq('workspace_id', currentWs.id)
+      .eq('user_id', userId);
+
+    // 2) Đồng thời xóa khỏi teamspace thuộc workspace này
+    const { data: tsRows } = await sb.from('teamspaces')
+      .select('id')
+      .eq('workspace_id', currentWs.id);
+    const tsIds = (tsRows || []).map(t => t.id);
+    if (tsIds.length) {
+      await sb.from('teamspace_members')
+        .delete()
+        .in('teamspace_id', tsIds)
+        .eq('user_id', userId);
+    }
+
+    // 3) Reload UI
+    await loadWsMembers();
+    await loadTeamspaces();
+    renderWsSettings();
+    renderTs();
+  } catch (e) {
+    toast('Không xóa member khỏi workspace được: ' + (e?.message || String(e)));
+  }
+};
+
+window.doSignOut = async function() {
+  await sb.auth.signOut();
+  currentUser = null; currentWs = null;
+  show('screen-auth');
+};
+
+// ── EDIT / DELETE REMINDER ────────────────────────────────────────────────────
+window.editReminder = function(id) {
+  const r = reminders.find(r => r.id === id);
+  if (!r) return;
+  editingReminderId = id;
+  document.getElementById('edit-title').value = r.title;
+  document.getElementById('edit-desc').value  = r.description || '';
+  // Convert to local datetime-local format
+  const local = new Date(new Date(r.due_at).getTime() - new Date().getTimezoneOffset()*60000)
+    .toISOString().slice(0,16);
+  document.getElementById('edit-time').value     = local;
+  document.getElementById('edit-priority').value = r.priority || 'normal';
+  document.getElementById('edit-modal').style.display = 'flex';
+};
+
+window.closeEditModal = function() {
+  document.getElementById('edit-modal').style.display = 'none';
+  editingReminderId = null;
+};
+
+window.saveReminderEdit = async function() {
+  if (!editingReminderId) return;
+  const title = document.getElementById('edit-title').value.trim();
+  const tv    = document.getElementById('edit-time').value;
+  if (!title) return toast('Nhập title đi!');
+  if (!tv)    return toast('Chọn ngày giờ đi!');
+  try {
+    await sb.from('reminders').update({
+      title,
+      description: document.getElementById('edit-desc').value.trim(),
+      due_at:   new Date(tv).toISOString(),
+      priority: document.getElementById('edit-priority').value,
+    }).eq('id', editingReminderId);
+    document.getElementById('edit-modal').style.display = 'none';
+    editingReminderId = null;
+    await loadReminders(); renderHome();
+    toast('Đã lưu! ✓');
+  } catch(e) { toast('Lỗi: ' + e.message); }
+};
+
+window.deleteReminder = async function(id) {
+  if (!confirm('Xóa reminder này? Hành động không thể hoàn tác.')) return;
+  try {
+    // 1. Hủy tất cả alerts đang pending cho reminder này
+    clearTimeout(pendingReschedules.get(id));
+    pendingReschedules.delete(id);
+    window.api.cancelReminderAlerts?.(id);
+
+    // 2. Xóa khỏi firedKeys để không còn dấu vết trong bộ nhớ
+    for (const key of firedKeys) {
+      if (key.startsWith(id + ':')) firedKeys.delete(key);
+    }
+
+    // 3. Thông báo cho các assignee khác biết task đã bị xóa
+    const r = reminders.find(r => r.id === id);
+    if (r) {
+      const recipients = (r.reminder_assignments || [])
+        .map(a => a.user_id)
+        .filter(uid => uid !== currentUser.id);
+      if (recipients.length) {
+        await sb.from('notifications').insert(
+          recipients.map(uid => ({
+            workspace_id: currentWs.id,
+            user_id: uid,
+            type: 'task_deleted',
+            icon: '🗑️',
+            title: r.title,
+          }))
+        );
+      }
+    }
+
+    // 4. Xóa khỏi DB (assignments trước, reminder sau)
+    await sb.from('reminder_assignments').delete().eq('reminder_id', id);
+    await sb.from('reminders').delete().eq('id', id);
+
+    await loadReminders(); renderHome();
+    toast('Đã xóa!');
+  } catch(e) { toast('Lỗi: ' + e.message); }
+};
+
+// ── FORM SECTION TOGGLE ───────────────────────────────────────────────────────
+window.toggleFormSection = function(bodyId, arrowId) {
+  document.getElementById(bodyId)?.classList.toggle('collapsed');
+  document.getElementById(arrowId)?.classList.toggle('open');
+};
+
+// ── ACCOUNT PAGE ─────────────────────────────────────────────────────────────
+window.renderAccount = function() {
+  const body = document.getElementById('account-body');
+  if (!body || !currentUser) return;
+  const me = myMember();
+  const cl = me ? mc(me.display_name) : { bg: '#EDE8DF', fg: '#888780' };
+  const initial = me?.display_name?.[0]?.toUpperCase() || '?';
+  body.innerHTML = `
+    <div class="settings-card" style="padding:16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="width:52px;height:52px;border-radius:50%;background:${cl.bg};color:${cl.fg};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0">${initial}</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2C2C2A">${esc(me?.display_name || '—')}</div>
+          <div style="font-size:13px;color:#888780">${esc(currentUser.email)}</div>
+        </div>
+      </div>
+      <div class="form-label" style="margin-top:0">${t('acc_display_lbl')}</div>
+      <input class="form-input" id="acc-display-name" value="${esc(me?.display_name || '')}" placeholder="${t('acc_display_ph')}" style="background:#F5F0E8">
+      <button class="btn-set-reminder" style="margin-top:10px;padding:11px" onclick="saveDisplayName()">${t('btn_save')}</button>
+    </div>
+    <div class="settings-card" style="padding:4px 16px">
+      <div class="settings-row">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#2C2C2A">${t('acc_email')}</div>
+          <div class="settings-label">${esc(currentUser.email)}</div>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#2C2C2A">${t('acc_current_ws')}</div>
+          <div class="settings-label">${esc(currentWs?.name || '—')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-card" style="padding:12px 16px;margin-top:12px">
+      <div style="font-size:13px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${t('acc_language')}</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setLang('vi')" style="flex:1;padding:9px 12px;border-radius:12px;border:2px solid ${lang==='vi'?'#9AAB63':'#EDE8DF'};background:${lang==='vi'?'#EAF3DE':'#fff'};color:${lang==='vi'?'#3B6D11':'#888780'};font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">${t('lang_vi')}</button>
+        <button onclick="setLang('en')" style="flex:1;padding:9px 12px;border-radius:12px;border:2px solid ${lang==='en'?'#9AAB63':'#EDE8DF'};background:${lang==='en'?'#EAF3DE':'#fff'};color:${lang==='en'?'#3B6D11':'#888780'};font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">${t('lang_en')}</button>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn btn-danger" onclick="doSignOut()">${t('btn_signout')}</button>
+    </div>`;
+};
+
+window.saveDisplayName = async function() {
+  const name = document.getElementById('acc-display-name')?.value.trim();
+  if (!name) return toast(t('toast_name_empty'));
+  const { data, error } = await sb.from('workspace_members')
+    .update({ display_name: name })
+    .eq('workspace_id', currentWs.id)
+    .eq('user_id', currentUser.id)
+    .select();
+  if (error) {
+    console.error('saveDisplayName error:', error);
+    return toast('Lỗi: ' + (error.message || JSON.stringify(error)));
+  }
+  // Nếu không có row nào được update (RLS hoặc row chưa tồn tại) → upsert
+  if (!data || data.length === 0) {
+    const { error: upsertErr } = await sb.from('workspace_members')
+      .upsert({
+        workspace_id: currentWs.id,
+        user_id: currentUser.id,
+        display_name: name,
+        email: currentUser.email,
+        role: 'member',
+      }, { onConflict: 'workspace_id,user_id' });
+    if (upsertErr) {
+      console.error('saveDisplayName upsert error:', upsertErr);
+      return toast('Lỗi: ' + (upsertErr.message || JSON.stringify(upsertErr)));
+    }
+  }
+  await loadWsMembers();
+  const el = document.getElementById('nav-avatar-btn');
+  if (el) { el.textContent = name[0].toUpperCase(); const cl = mc(name); el.style.background = cl.bg; el.style.color = cl.fg; }
+  renderAccount();
+  toast(t('toast_name_saved'));
+};
+
+window.toggleAutostart = async function(enabled) {
+  await window.api?.setAutostart(enabled);
+  toast(enabled ? 'Sẽ tự khởi động cùng Windows' : 'Đã tắt khởi động cùng Windows');
+};
+
+// ── START ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
