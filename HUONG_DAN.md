@@ -1,4 +1,4 @@
-# RemindBoard — Hướng dẫn chạy
+# RemindBoard v7 — Hướng dẫn chạy
 
 ## Yêu cầu
 - Node.js v18+ → https://nodejs.org (tải LTS)
